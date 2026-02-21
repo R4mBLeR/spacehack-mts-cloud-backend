@@ -12,6 +12,7 @@ dotenv.config({ path: path.join(process.cwd(), envFile) });
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.setGlobalPrefix('api');
 
   const port = process.env.PORT ? parseInt(process.env.PORT) : 5050;
   const swaggerPath = process.env.SWAGGER_PATH || 'swagger';
@@ -36,7 +37,7 @@ async function bootstrap() {
   }
 
   await app.listen(port);
-  console.log(`🚀 Server: http://localhost:${port}`);
+  console.log(`🚀 Server: http://localhost:${port}/api`);
   console.log(`🚀 Running in ${process.env.NODE_ENV || 'development'} mode`);
   console.log(`📚 Swagger: http://localhost:${port}/${swaggerPath}`);
 }
