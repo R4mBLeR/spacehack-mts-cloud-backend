@@ -4,6 +4,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { User } from '../models/user.entity';
 import { Session } from '../models/session.entity';
+import { Role } from '../models/role.entity';
+import { Permission } from '../models/permission.entity';
 
 @Module({
   imports: [
@@ -17,7 +19,7 @@ import { Session } from '../models/session.entity';
         username: configService.get('DB_USERNAME'), // ❗ Должно быть из .env
         password: configService.get('DB_PASSWORD'), // ❗ Должно быть из .env
         database: configService.get('DB_DATABASE'),
-        entities: [User, Session],
+        entities: [User, Role, Permission, Session],
         synchronize: configService.get('NODE_ENV') !== 'production',
       }),
     }),

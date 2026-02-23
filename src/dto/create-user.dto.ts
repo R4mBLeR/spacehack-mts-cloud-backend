@@ -1,4 +1,3 @@
-// dto/create-user.dto.ts
 import { IsEmail, IsString, MinLength, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -47,10 +46,27 @@ export class CreateUserDto {
   @ApiProperty({
     description: 'User last name',
     example: 'Doe',
+    required: true,
+    nullable: true,
+  })
+  @IsString()
+  lastName: string;
+
+  @ApiProperty({
+    description: 'User surname',
+    example: 'Nikolayevich',
     required: false,
     nullable: true,
   })
   @IsOptional()
   @IsString()
-  lastName?: string;
+  surName?: string;
+
+  @ApiProperty({
+    description: 'User phone number',
+    example: '+123456789',
+    required: true,
+  })
+  @IsString()
+  phoneNumber: string;
 }

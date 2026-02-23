@@ -1,4 +1,3 @@
-// models/user.entity.ts
 import {
   Entity,
   Column,
@@ -6,9 +5,12 @@ import {
   BeforeInsert,
   BeforeUpdate,
   CreateDateColumn,
+  ManyToMany,
+  JoinTable,
 } from 'typeorm';
 import { AuthUtils } from '../utils/auth.utils';
 import { Exclude } from 'class-transformer';
+import { Role } from './role.entity';
 
 @Entity('users')
 export class User {
@@ -24,8 +26,14 @@ export class User {
   @Column()
   firstName: string;
 
-  @Column()
+  @Column({ nullable: true })
   lastName: string;
+
+  @Column({ nullable: true })
+  surName: string;
+
+  @Column()
+  phoneNumber: string;
 
   @Column()
   @Exclude()
@@ -42,4 +50,12 @@ export class User {
       this.password = await bcryptService.hashPassword(this.password);
     }
   }
+
+  @ManyToMany(() => Role, { eager: true })
+  @JoinTable({
+    name: 'user_roles',
+    joinColumn: { name: 'user_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'role_id', referencedColumnName: 'id' },
+  })
+  roles: Role[];
 }

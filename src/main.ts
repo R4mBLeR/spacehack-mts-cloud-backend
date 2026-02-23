@@ -14,6 +14,14 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix('api');
 
+  app.enableCors({
+    origin: process.env.CORS_ORIGIN?.split(',') || '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['authorization', 'content-type', 'accept'],
+    exposedHeaders: ['authorization'],
+    credentials: true,
+  });
+
   const port = process.env.PORT ? parseInt(process.env.PORT) : 5050;
   const swaggerPath = process.env.SWAGGER_PATH || 'swagger';
 
@@ -27,8 +35,9 @@ async function bootstrap() {
           type: 'http',
           scheme: 'bearer',
           bearerFormat: 'JWT',
+          in: 'header',
         },
-        'JWT-auth',
+        'access-token', // имя схемы
       )
       .build();
 

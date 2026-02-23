@@ -24,7 +24,7 @@ export class AuthService {
 
   async register(createUserDto: CreateUserDto): Promise<TokensPair> {
     const user = await this.usersService.create(createUserDto);
-    return this.generateTokens(user.id, user.username);
+    return this.generateNewTokens(user.id, user.username);
   }
 
   async login(loginUserDto: LoginUserDto): Promise<TokensPair> {
@@ -43,11 +43,23 @@ export class AuthService {
     if (!isPasswordValid) {
       throw new UnauthorizedException('USERNAME_OR_PASSWORD_IS_INCORRECT');
     }
-    const tokens = this.generateTokens(user.id, user.username);
+    const tokens = this.generateNewTokens(user.id, user.username);
     return tokens;
   }
 
-  private async generateTokens(
+  async refresh(token: string): Promise<TokensPair> {
+    const session = await this.sessionRepository.findSessionByToken(token);
+    if (session == null) {
+      throw new UnauthorizedException('REFRESH_TOKEN_IS_EXPIRED');
+    }
+    return this.updateTokens(
+      session.user.id,
+      session.user.username,
+      session.refresh_token,
+    );
+  }
+
+  private async generateNewTokens(
     userId: number,
     username: string,
   ): Promise<TokensPair> {
@@ -57,7 +69,7 @@ export class AuthService {
     tokensPair.accessToken = await this.jwtService.signAsync(payload, {
       expiresIn: '15m',
     });
-    const session = await this.sessionRepository.addToken(
+    const session = await this.sessionRepository.addSession(
       userId,
       this.authUtils.generateRefresh(),
     );
@@ -65,6 +77,24 @@ export class AuthService {
       throw new InternalServerErrorException('SESSION_CANT_CREATE_TOKEN');
     }
     tokensPair.refreshToken = session.refresh_token;
+    return tokensPair;
+  }
+
+  private async updateTokens(
+    userId: number,
+    username: string,
+    oldToken: string,
+  ): Promise<TokensPair> {
+    const payload = { sub: userId, username };
+
+    const tokensPair = new TokensPair();
+    tokensPair.accessToken = await this.jwtService.signAsync(payload, {
+      expiresIn: '15m',
+    });
+    tokensPair.refreshToken = await this.sessionRepository.updateToken(
+      oldToken,
+      this.authUtils.generateRefresh(),
+    );
     return tokensPair;
   }
 }
