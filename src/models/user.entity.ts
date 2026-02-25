@@ -1,7 +1,6 @@
 import {
   Entity,
   Column,
-  PrimaryGeneratedColumn,
   BeforeInsert,
   BeforeUpdate,
   CreateDateColumn,
@@ -11,12 +10,10 @@ import {
 import { AuthUtils } from '../utils/auth.utils';
 import { Exclude } from 'class-transformer';
 import { Role } from './role.entity';
+import { BaseEntityWithId } from './base.entity';
 
 @Entity('users')
-export class User {
-  @PrimaryGeneratedColumn()
-  id: number;
-
+export class User extends BaseEntityWithId {
   @Column({ unique: true })
   email: string;
 

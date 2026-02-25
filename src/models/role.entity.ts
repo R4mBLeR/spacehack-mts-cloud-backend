@@ -1,19 +1,11 @@
-import {
-  Entity,
-  Column,
-  PrimaryGeneratedColumn,
-  ManyToMany,
-  JoinTable,
-} from 'typeorm';
+import { Entity, Column, ManyToMany, JoinTable } from 'typeorm';
 import { Permission } from './permission.entity';
+import { BaseEntityWithId } from './base.entity';
 
 @Entity('roles')
-export class Role {
+export class Role extends BaseEntityWithId {
   @Column({ unique: true })
   role: string;
-
-  @PrimaryGeneratedColumn()
-  id: number;
 
   @Column({ nullable: true })
   description: string;

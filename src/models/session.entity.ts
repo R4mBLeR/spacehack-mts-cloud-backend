@@ -1,17 +1,9 @@
-import {
-  Entity,
-  Column,
-  ManyToOne,
-  JoinColumn,
-  PrimaryGeneratedColumn,
-} from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { User } from './user.entity';
+import { BaseEntityWithId } from './base.entity';
 
 @Entity('sessions')
-export class Session {
-  @PrimaryGeneratedColumn()
-  id: number;
-
+export class Session extends BaseEntityWithId {
   @Column()
   refresh_token: string;
 
