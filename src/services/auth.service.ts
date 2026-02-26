@@ -11,6 +11,7 @@ import { LoginUserDto } from '../auth/dto/login-user.dto';
 import { UserRepository } from '../repositories/user.repository';
 import { AuthUtils } from '../utils/auth.utils';
 import { SessionRepository } from '../repositories/session.repository';
+import { Role } from '../models/role.entity';
 
 @Injectable()
 export class AuthService {
@@ -24,7 +25,7 @@ export class AuthService {
 
   async register(createUserDto: CreateUserDto): Promise<TokensPair> {
     const user = await this.usersService.create(createUserDto);
-    return this.generateNewTokens(user.id, user.username);
+    return this.generateNewTokens(user.id, user.username, user.roles);
   }
 
   async login(loginUserDto: LoginUserDto): Promise<TokensPair> {
@@ -43,7 +44,7 @@ export class AuthService {
     if (!isPasswordValid) {
       throw new UnauthorizedException('USERNAME_OR_PASSWORD_IS_INCORRECT');
     }
-    const tokens = this.generateNewTokens(user.id, user.username);
+    const tokens = this.generateNewTokens(user.id, user.username, user.roles);
     return tokens;
   }
 
@@ -55,6 +56,7 @@ export class AuthService {
     return this.updateTokens(
       session.user.id,
       session.user.username,
+      session.user.roles,
       session.refresh_token,
     );
   }
@@ -62,8 +64,10 @@ export class AuthService {
   private async generateNewTokens(
     userId: number,
     username: string,
+    roles: Role[],
   ): Promise<TokensPair> {
-    const payload = { sub: userId, username };
+    const userRoles = roles?.map((r) => r.role);
+    const payload = { sub: userId, username, roles: userRoles };
 
     const tokensPair = new TokensPair();
     tokensPair.accessToken = await this.jwtService.signAsync(payload, {
@@ -83,9 +87,12 @@ export class AuthService {
   private async updateTokens(
     userId: number,
     username: string,
+    roles: Role[],
     oldToken: string,
   ): Promise<TokensPair> {
-    const payload = { sub: userId, username };
+    const userRoles = roles?.map((r) => r.role);
+
+    const payload = { sub: userId, username, roles: userRoles };
 
     const tokensPair = new TokensPair();
     tokensPair.accessToken = await this.jwtService.signAsync(payload, {

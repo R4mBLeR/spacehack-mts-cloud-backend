@@ -2,6 +2,7 @@
 import { Injectable } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
+import { Request } from 'express';
 
 @Injectable()
 export class AuthUtils {
@@ -21,5 +22,14 @@ export class AuthUtils {
 
   generateRefresh(): string {
     return randomBytes(64).toString('hex');
+  }
+
+  extractTokenFromHeader(request: Request): string | undefined {
+    const authHeader = request.headers.authorization;
+    if (!authHeader) {
+      return undefined;
+    }
+    const [type, token] = authHeader.split(' ');
+    return type === 'Bearer' ? token : undefined;
   }
 }

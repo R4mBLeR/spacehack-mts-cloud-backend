@@ -6,16 +6,24 @@ import {
   Param,
   UseInterceptors,
   ClassSerializerInterceptor,
+  UseGuards,
 } from '@nestjs/common';
 import { User } from '../models/user.entity';
 import { CreateUserDto } from '../dto/create-user.dto';
 import { UsersService } from '../services/users.service';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { HasRoles } from '../auth/decorators/role.decorator';
+import { Roles } from '../auth/roles';
+import { ApiBearerAuth } from '@nestjs/swagger';
 
 @Controller('users')
 @UseInterceptors(ClassSerializerInterceptor)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  @ApiBearerAuth('access-token')
+  @UseGuards(RolesGuard)
+  @HasRoles(Roles.ADMIN)
   @Post()
   async create(@Body() createUserDto: CreateUserDto): Promise<User> {
     return this.usersService.create(createUserDto);
