@@ -102,13 +102,32 @@ Data Transfer Objects ensure that incoming data is strictly validated before rea
 
 ---
 
-## 6. Request Lifecycle Diagram
+---
 
-1. **Client** sends `POST /api/users` with a JWT in the `Authorization` header.
-2. **RolesGuard** catches the request, verifies the JWT signature against `JWT_SECRET`, and extracts roles.
-3. **RolesGuard** checks if the user has the `admin` role required by the `@HasRoles(Roles.ADMIN)` decorator.
-4. **UsersController** receives the validated request.
-5. **UsersService** processes the logic.
-6. **UserRepository** executes the SQL query through TypeORM.
-7. **PostgreSQL** returns the data.
-8. **Controller** sends a JSON response back to the **Client**.
+## 7. Production Infrastructure (DigitalOcean)
+
+- **Entry Point:** Public IP `159.89.30.73` mapped to `kurumi.software`.
+- **Reverse Proxy:** Nginx (v1.24.0) handles SSL termination.
+- **SSL/TLS:** Let's Encrypt certificates managed via Certbot.
+- **Docker Network:**
+  - `mts_backend`: Internal NestJS container (Port 8080).
+  - `mts_postgres`: Internal PostgreSQL container (Port 5432).
+  - Both share the `mts_network` bridge.
+
+---
+
+## 8. Mobile Developer Quick Start
+
+- **Base URL:** `https://kurumi.software/api`
+- **Swagger UI:** `https://kurumi.software/swagger/`
+- **Authentication Flow:**
+  1. `POST /auth/register` to create a user.
+  2. `POST /auth/login` to receive `accessToken` and `refreshToken`.
+  3. Include `Authorization: Bearer <accessToken>` in all restricted requests.
+  4. If `401 Unauthorized` occurs, call `POST /auth/refresh` with the `refreshToken`.
+
+---
+
+## 9. Request Lifecycle Diagram
+
+... [rest of the lifecycle remains the same]
