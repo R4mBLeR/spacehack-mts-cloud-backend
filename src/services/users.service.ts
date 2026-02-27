@@ -40,9 +40,13 @@ export class UsersService {
   }
 
   async create(createUserDto: CreateUserDto): Promise<User> {
-    const existingUser = await this.userRepository.findOneBy({
-      email: createUserDto.email,
+    const existingUser = await this.userRepository.find({
+      where: [
+        { email: createUserDto.email },
+        { username: createUserDto.username },
+      ],
     });
+    console.log(existingUser);
     if (existingUser) {
       throw new ConflictException('CURRENT_EMAIL_OR_USERNAME_ALREADY_EXISTS');
     }
