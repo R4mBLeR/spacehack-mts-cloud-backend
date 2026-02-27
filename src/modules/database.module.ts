@@ -20,7 +20,7 @@ import { Permission } from '../models/permission.entity';
         password: configService.get('DB_PASSWORD'), // ❗ Должно быть из .env
         database: configService.get('DB_DATABASE'),
         entities: [User, Role, Permission, Session],
-        synchronize: configService.get('NODE_ENV') !== 'production',
+        synchronize: configService.get<string>('TYPEORM_SYNCHRONIZE') === 'true',
       }),
     }),
   ],
