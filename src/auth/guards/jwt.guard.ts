@@ -32,7 +32,10 @@ export class JwtGuard implements CanActivate {
       const payload = await this.jwtService.verifyAsync(token, {
         secret: process.env.JWT_SECRET || 'your-secret-key',
       });
-      console.log(payload);
+      request.user = {
+        id: payload.id,
+        username: payload.username,
+      };
     } catch (e) {
       throw new UnauthorizedException('TOKEN_IS_INVALID');
     }

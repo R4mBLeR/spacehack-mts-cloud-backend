@@ -5,8 +5,12 @@ import {
   Body,
   Param,
   UseInterceptors,
+  Headers,
   ClassSerializerInterceptor,
   UseGuards,
+  Put,
+  ForbiddenException,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { User } from '../models/user.entity';
 import { CreateUserDto } from '../dto/create-user.dto';
@@ -16,6 +20,9 @@ import { HasRoles } from '../auth/decorators/role.decorator';
 import { Roles } from '../auth/roles';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { JwtGuard } from '../auth/guards/jwt.guard';
+import { UpdateUserDto } from '../dto/update-user.dto';
+import { CurrentUserId } from '../auth/decorators/current.user.id.dto';
+import { AuthUtils } from '../utils/auth.utils';
 
 @Controller('users')
 @UseInterceptors(ClassSerializerInterceptor)
@@ -40,7 +47,17 @@ export class UsersController {
   @ApiBearerAuth('access-token')
   @UseGuards(JwtGuard)
   @Get(':id')
-  async findOne(@Param('id') id: string): Promise<User> {
+  async findOne(@Param('id') id: number): Promise<User> {
     return this.usersService.findOne(+id);
+  }
+
+  @Put()
+  @ApiBearerAuth('access-token')
+  @UseGuards(JwtGuard)
+  async updateUser(
+    @CurrentUserId() userId: number,
+    @Body() updateUserDto: UpdateUserDto,
+  ): Promise<User> {
+    return this.usersService.update(userId, updateUserDto);
   }
 }

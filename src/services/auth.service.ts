@@ -67,7 +67,7 @@ export class AuthService {
     roles: Role[],
   ): Promise<TokensPair> {
     const userRoles = roles?.map((r) => r.role);
-    const payload = { sub: userId, username, roles: userRoles };
+    const payload = { id: userId, username, roles: userRoles };
 
     const tokensPair = new TokensPair();
     tokensPair.accessToken = await this.jwtService.signAsync(payload, {
