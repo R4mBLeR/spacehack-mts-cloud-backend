@@ -12,7 +12,7 @@ The application lifecycle begins here. Key responsibilities:
 - **CORS Configuration:** Strictly defined to allow mobile/web clients. It permits standard methods (GET, POST, PUT, DELETE, PATCH) and exposes the `authorization` header.
 - **Global Prefix:** All API routes are prefixed with `/api`.
 - **Swagger Integration:** In non-production environments, a full OpenAPI 3.0 documentation suite is served at `/swagger`.
-- **Port Binding:** Defaults to `5050` (Dev) or `8080` (Prod), or follows the `PORT` environment variable.
+- **Port Binding:** Defaults to `8080`, or follows the `PORT` environment variable.
 
 ---
 
@@ -77,12 +77,14 @@ Data Transfer Objects ensure that incoming data is strictly validated before rea
 
 - **Access Token:**
   - **Type:** JWT (Signed with `JWT_SECRET`).
-  - **Lifetime:** 15 minutes (Hardcoded for security).
+  - **Lifetime:** 15 minutes.
+  - **Transmission:** Passed in the `Authorization: Bearer <token>` header.
   - **Payload:** `{ sub: userId, username: string, roles: string[] }`.
 - **Refresh Token:**
   - **Type:** 64-character random hex string.
   - **Storage:** Persisted in PostgreSQL (`sessions` table).
   - **Lifetime:** Single-use (Rotation pattern).
+  - **Transmission:** Passed in the `Authorization: Bearer <token>` header during the refresh flow.
 
 ### 4.2. Guards & Decorators
 
@@ -124,7 +126,7 @@ Data Transfer Objects ensure that incoming data is strictly validated before rea
   1. `POST /auth/register` to create a user.
   2. `POST /auth/login` to receive `accessToken` and `refreshToken`.
   3. Include `Authorization: Bearer <accessToken>` in all restricted requests.
-  4. If `401 Unauthorized` occurs, call `POST /auth/refresh` with the `refreshToken`.
+  4. If `401 Unauthorized` occurs, call `POST /auth/refresh` with the `refreshToken` in the `Authorization: Bearer <refreshToken>` header.
 
 ---
 
