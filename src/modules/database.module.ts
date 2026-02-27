@@ -16,11 +16,13 @@ import { Permission } from '../models/permission.entity';
         type: 'postgres',
         host: configService.get('DB_HOST', 'localhost'),
         port: configService.get<number>('DB_PORT', 5432),
-        username: configService.get('DB_USERNAME'), // ❗ Должно быть из .env
-        password: configService.get('DB_PASSWORD'), // ❗ Должно быть из .env
+        username: configService.get('DB_USERNAME'),
+        password: configService.get('DB_PASSWORD'),
         database: configService.get('DB_DATABASE'),
         entities: [User, Role, Permission, Session],
-        synchronize: configService.get<string>('TYPEORM_SYNCHRONIZE') === 'true',
+        autoLoadEntities: true,
+        synchronize: String(configService.get('TYPEORM_SYNCHRONIZE')) === 'true',
+        logging: String(configService.get('TYPEORM_LOGGING')) === 'true',
       }),
     }),
   ],
