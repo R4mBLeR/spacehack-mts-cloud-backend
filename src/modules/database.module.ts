@@ -14,11 +14,13 @@ import { Permission } from '../models/permission.entity';
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
         const logger = new Logger('DatabaseModule');
-        const sync = configService.get('TYPEORM_SYNCHRONIZE');
-        const logging = configService.get('TYPEORM_LOGGING');
         
-        logger.log(`DB Host: ${configService.get('DB_HOST')}`);
-        logger.log(`TypeORM Sync: ${sync} (type: ${typeof sync})`);
+        // Берем из конфига или напрямую из process.env для надежности
+        const syncValue = configService.get('TYPEORM_SYNCHRONIZE') ?? process.env.TYPEORM_SYNCHRONIZE;
+        const loggingValue = configService.get('TYPEORM_LOGGING') ?? process.env.TYPEORM_LOGGING;
+        
+        logger.log(`DB Host: ${configService.get('DB_HOST') || process.env.DB_HOST}`);
+        logger.log(`TypeORM Sync (Value): ${syncValue}`);
         
         return {
           type: 'postgres',
@@ -29,8 +31,8 @@ import { Permission } from '../models/permission.entity';
           database: configService.get('DB_DATABASE', 'mts_db'),
           entities: [User, Role, Permission, Session],
           autoLoadEntities: true,
-          synchronize: String(sync) === 'true',
-          logging: String(logging) === 'true',
+          synchronize: String(syncValue) === 'true',
+          logging: String(loggingValue) === 'true',
         };
       },
     }),
