@@ -46,8 +46,7 @@ export class UsersService {
         { username: createUserDto.username },
       ],
     });
-    console.log(existingUser);
-    if (existingUser) {
+    if (existingUser.length > 0) {
       throw new ConflictException('CURRENT_EMAIL_OR_USERNAME_ALREADY_EXISTS');
     }
     return this.userRepository.createUser(createUserDto);

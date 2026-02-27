@@ -12,6 +12,7 @@ import { UserRepository } from '../repositories/user.repository';
 import { AuthUtils } from '../utils/auth.utils';
 import { SessionRepository } from '../repositories/session.repository';
 import { Role } from '../models/role.entity';
+import { User } from '../models/user.entity';
 
 @Injectable()
 export class AuthService {
@@ -23,12 +24,12 @@ export class AuthService {
     private authUtils: AuthUtils,
   ) {}
 
-  async register(createUserDto: CreateUserDto): Promise<TokensPair> {
+  async register(createUserDto: CreateUserDto): Promise<User> {
     const user = await this.usersService.create(createUserDto);
-    return this.generateNewTokens(user.id, user.username, user.roles);
+    return user;
   }
 
-  async login(loginUserDto: LoginUserDto): Promise<TokensPair> {
+  async login(loginUserDto: LoginUserDto): Promise<User> {
     const user = await this.userRepository.findOneBy({
       username: loginUserDto.username,
     });
@@ -44,8 +45,7 @@ export class AuthService {
     if (!isPasswordValid) {
       throw new UnauthorizedException('USERNAME_OR_PASSWORD_IS_INCORRECT');
     }
-    const tokens = this.generateNewTokens(user.id, user.username, user.roles);
-    return tokens;
+    return user;
   }
 
   async refresh(token: string): Promise<TokensPair> {
@@ -61,7 +61,7 @@ export class AuthService {
     );
   }
 
-  private async generateNewTokens(
+  public async generateNewTokens(
     userId: number,
     username: string,
     roles: Role[],
