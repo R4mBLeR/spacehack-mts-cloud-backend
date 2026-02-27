@@ -10,7 +10,7 @@ import { JwtService } from '@nestjs/jwt';
 import { AuthUtils } from '../../utils/auth.utils';
 
 @Injectable()
-export class RolesGuard implements CanActivate {
+export class JwtGuard implements CanActivate {
   constructor(
     private reflector: Reflector,
     private jwtService: JwtService,
@@ -18,10 +18,6 @@ export class RolesGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const requiredRoles = this.reflector.get<string[]>(
-      'roles',
-      context.getHandler(),
-    );
     const request = context.switchToHttp().getRequest();
 
     if (!request) {
@@ -32,21 +28,13 @@ export class RolesGuard implements CanActivate {
     if (!token) {
       throw new UnauthorizedException('TOKEN_IS_UNDEFINED');
     }
-    let payload;
     try {
-      payload = await this.jwtService.verifyAsync(token, {
+      const payload = await this.jwtService.verifyAsync(token, {
         secret: process.env.JWT_SECRET || 'your-secret-key',
       });
+      console.log(payload);
     } catch (e) {
       throw new UnauthorizedException('TOKEN_IS_INVALID');
-    }
-
-    const userRoles = payload.roles || [];
-    const hasRequiredRole = requiredRoles.some((role) =>
-      userRoles.includes(role),
-    );
-    if (!hasRequiredRole) {
-      throw new UnauthorizedException('NO_REQUIRED_ROLE');
     }
     return true;
   }

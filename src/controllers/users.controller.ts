@@ -15,6 +15,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { HasRoles } from '../auth/decorators/role.decorator';
 import { Roles } from '../auth/roles';
 import { ApiBearerAuth } from '@nestjs/swagger';
+import { JwtGuard } from '../auth/guards/jwt.guard';
 
 @Controller('users')
 @UseInterceptors(ClassSerializerInterceptor)
@@ -29,11 +30,15 @@ export class UsersController {
     return this.usersService.create(createUserDto);
   }
 
+  @ApiBearerAuth('access-token')
+  @UseGuards(JwtGuard)
   @Get()
   async findAll(): Promise<User[]> {
     return this.usersService.findAll();
   }
 
+  @ApiBearerAuth('access-token')
+  @UseGuards(JwtGuard)
   @Get(':id')
   async findOne(@Param('id') id: string): Promise<User> {
     return this.usersService.findOne(+id);
