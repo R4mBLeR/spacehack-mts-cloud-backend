@@ -2,21 +2,17 @@ version: '3.8'
 
 services:
   postgres:
-    env_file:
-      - .env.dev
     image: postgres:15
     container_name: mts_postgres
     restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-mts_db}
+    env_file:
+      - .env.prod
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-mts_db}" ]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d mts_db"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -33,31 +29,14 @@ services:
       postgres:
         condition: service_healthy
     ports:
-      - "${PORT:-8080}:${PORT:-8080}"
+      - "8080:8080"
+    env_file:
+      - .env.prod
     environment:
-      NODE_ENV: ${NODE_ENV:-production}
-      PORT: ${PORT:-8080}
-
-      # Database
-      DB_HOST: postgres
-      DB_PORT: ${DB_PORT:-5432}
-      DB_USERNAME: ${POSTGRES_USER:-postgres}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      DB_DATABASE: ${POSTGRES_DB:-mts_db}
-
-      # JWT
-      JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-this}
-      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
-
-      # TypeORM
-      TYPEORM_SYNCHRONIZE: ${TYPEORM_SYNCHRONIZE:-false}
-      TYPEORM_LOGGING: ${TYPEORM_LOGGING:-false}
-    volumes:
-      - ./src:/app/src
-      - /app/node_modules
+      - NODE_ENV=production
+      - DB_HOST=postgres
     networks:
       - mts_network
-    command: node dist/main.js
 
 volumes:
   postgres_data:
