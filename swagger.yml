@@ -88,7 +88,8 @@ paths:
       operationId: AuthController_refresh
       parameters:
         - name: authorization
-          required: false
+          description: Bearer refresh_token
+          required: true
           in: header
           schema:
             type: string
