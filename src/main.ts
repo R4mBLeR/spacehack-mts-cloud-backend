@@ -25,8 +25,7 @@ async function bootstrap() {
   const port = process.env.PORT ? parseInt(process.env.PORT) : 5050;
   const swaggerPath = process.env.SWAGGER_PATH || 'swagger';
 
-  if (process.env.NODE_ENV !== 'production') {
-    const swaggerConfig = new DocumentBuilder()
+  const swaggerConfig = new DocumentBuilder()
       .setTitle(process.env.SWAGGER_TITLE || 'API')
       .setDescription(process.env.SWAGGER_DESCRIPTION || 'API documentation')
       .setVersion(process.env.SWAGGER_VERSION || '1.0')
@@ -43,7 +42,6 @@ async function bootstrap() {
 
     const document = SwaggerModule.createDocument(app, swaggerConfig);
     SwaggerModule.setup(swaggerPath, app, document);
-  }
 
   await app.listen(port);
   console.log(`🚀 Server: http://localhost:${port}/api`);
