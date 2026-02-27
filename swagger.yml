@@ -1,0 +1,169 @@
+openapi: 3.0.0
+info:
+  title: MTS Spacehack Backend API
+  description: API documentation
+  version: '1.0'
+  contact: {}
+paths:
+  /api:
+    get:
+      operationId: AppController_getHello
+      parameters: []
+      responses:
+        '200':
+          description: ''
+      tags:
+        - App
+  /api/users:
+    post:
+      operationId: UsersController_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserDto'
+      responses:
+        '201':
+          description: ''
+      security:
+        - access-token: []
+      tags:
+        - Users
+    get:
+      operationId: UsersController_findAll
+      parameters: []
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Users
+  /api/users/{id}:
+    get:
+      operationId: UsersController_findOne
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Users
+  /api/auth/register:
+    post:
+      operationId: AuthController_register
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserDto'
+      responses:
+        '201':
+          description: ''
+      tags:
+        - Auth
+  /api/auth/login:
+    post:
+      operationId: AuthController_login
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginUserDto'
+      responses:
+        '201':
+          description: ''
+      tags:
+        - Auth
+  /api/auth/refresh:
+    post:
+      operationId: AuthController_refresh
+      parameters:
+        - name: authorization
+          required: false
+          in: header
+          schema:
+            type: string
+      responses:
+        '201':
+          description: ''
+      security:
+        - access-token: []
+      tags:
+        - Auth
+components:
+  securitySchemes:
+    access-token:
+      scheme: bearer
+      bearerFormat: JWT
+      type: http
+      in: header
+  schemas:
+    CreateUserDto:
+      type: object
+      properties:
+        username:
+          type: string
+          description: Unique username for the user
+          example: johndoe123
+          minLength: 3
+        password:
+          type: string
+          description: Password must be at least 8 characters
+          example: '12345678'
+          format: password
+        email:
+          type: string
+          description: User email address
+          example: john.doe@example.com
+          format: email
+        firstName:
+          type: string
+          description: User first name
+          example: John
+          minLength: 2
+        lastName:
+          type: string
+          description: User last name
+          example: Doe
+          nullable: true
+        surName:
+          type: string
+          description: User surname
+          example: Nikolayevich
+          nullable: true
+        phoneNumber:
+          type: string
+          description: User phone number
+          example: '+123456789'
+      required:
+        - username
+        - password
+        - email
+        - firstName
+        - lastName
+        - phoneNumber
+    LoginUserDto:
+      type: object
+      properties:
+        username:
+          type: string
+          description: Unique username for the user
+          example: johndoe123
+          minLength: 3
+        password:
+          type: string
+          description: Password must be at least 8 characters
+          example: '12345678'
+          format: password
+      required:
+        - username
+        - password
