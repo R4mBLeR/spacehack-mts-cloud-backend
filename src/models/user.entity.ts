@@ -40,6 +40,7 @@ export class User extends BaseEntityWithId {
   created_at: string;
 
   @BeforeInsert()
+  @BeforeUpdate()
   async hashPassword(): Promise<void> {
     if (this.password) {
       const bcryptService = new AuthUtils();

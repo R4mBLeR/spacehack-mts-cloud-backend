@@ -52,7 +52,7 @@ export class UsersController {
     return this.usersService.findOne(+id);
   }
 
-  @Patch()
+  @Patch('update_info')
   @ApiBearerAuth('access-token')
   @UseGuards(JwtGuard)
   async updateUser(

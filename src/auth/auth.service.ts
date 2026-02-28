@@ -99,11 +99,22 @@ export class AuthService {
     );
 
     if (!isPasswordValid) {
-      throw new UnauthorizedException('USERNAME_OR_PASSWORD_IS_INCORRECT');
+      throw new UnauthorizedException('PASSWORD_IS_INCORRECT');
     }
+
+    const isNewPasswordSame = await this.authUtils.comparePasswords(
+      changePasswordDto.newPassword,
+      user.password,
+    );
+
+    if (isNewPasswordSame) {
+      throw new UnauthorizedException('PASSWORDS_IS_DUPLICATE');
+    }
+
     user.password = changePasswordDto.newPassword;
 
     await this.userRepository.save(user);
+    await this.sessionRepository.deleteAllSession(user.id);
     return user;
   }
 

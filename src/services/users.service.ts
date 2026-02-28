@@ -47,54 +47,60 @@ export class UsersService {
   }
 
   async create(createUserDto: CreateUserDto): Promise<User> {
-    const existingUser = await this.userRepository.find({
-      where: [
-        { email: createUserDto.email },
-        { username: createUserDto.username },
-      ],
-    });
-    if (existingUser.length > 0) {
+    const existingUsers = await this.userRepository.findUsersByEmailOrUsername(
+      createUserDto.email,
+      createUserDto.password,
+    );
+    if (existingUsers.length > 0) {
       throw new ConflictException('CURRENT_EMAIL_OR_USERNAME_ALREADY_EXISTS');
     }
     return this.userRepository.createUser(createUserDto);
   }
 
   async update(id: number, updateUserDto: UpdateUserDto): Promise<User> {
-    const existingUser = await this.userRepository.findOne({ where: { id } });
-
+    const existingUser = await this.userRepository.findUserById(id);
     if (!existingUser) {
       throw new NotFoundException('USER_NOT_FOUND');
     }
 
-    const { password, ...userDataWithoutPassword } = updateUserDto;
+    const { password, ...otherData } = updateUserDto;
 
-    const fieldsToUpdate = Object.entries(userDataWithoutPassword).filter(
-      ([_, value]) => value !== undefined,
-    );
+    if (!password) {
+      throw new BadRequestException('PASSWORD_REQUIRED');
+    }
 
     const isValidPassword = await this.authUtils.comparePasswords(
-      updateUserDto.password,
+      password,
       existingUser.password,
     );
 
     if (!isValidPassword) {
-      throw new UnauthorizedException('PASSWORD_IS_INCORRECT');
-    }
-    if (fieldsToUpdate.length === 0 && !password) {
-      throw new BadRequestException('NO_FIELDS_TO_UPDATE');
+      throw new UnauthorizedException('PASSWORD_INCORRECT');
     }
 
-    fieldsToUpdate.forEach(([key, value]) => {
-      (existingUser as any)[key] = value;
+    const { email, ...restData } = otherData;
+
+    if (email && email !== existingUser.email) {
+      const userWithSameEmail =
+        await this.userRepository.findUserByEmail(email);
+      if (userWithSameEmail) {
+        throw new ConflictException('EMAIL_ALREADY_USED');
+      }
+      existingUser.email = email;
+    }
+
+    const changedFields = Object.keys(restData).filter(
+      (key) =>
+        restData[key] !== undefined && existingUser[key] !== restData[key],
+    );
+
+    if (!changedFields.length && !email) {
+      throw new BadRequestException('NO_DATA_TO_UPDATE');
+    }
+
+    changedFields.forEach((key) => {
+      existingUser[key] = restData[key];
     });
-
-    const isEmailTaken = await this.userRepository.findOne({
-      where: { email: existingUser.email },
-    });
-
-    if (isEmailTaken) {
-      throw new ConflictException('EMAIL_IS_ALREADY_USED');
-    }
 
     return this.userRepository.save(existingUser);
   }
