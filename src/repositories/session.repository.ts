@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, DeleteResult, Repository } from 'typeorm';
 import { Session } from '../models/session.entity';
-import { AuthService } from '../services/auth.service';
+import { AuthService } from '../auth/auth.service';
 import { AuthUtils } from '../utils/auth.utils';
 
 @Injectable()
@@ -24,6 +24,18 @@ export class SessionRepository extends Repository<Session> {
 
   async addSession(user_id: number, token: string): Promise<Session> {
     return this.save({ user_id: user_id, refresh_token: token });
+  }
+
+  async deleteSessionByToken(refresh_token: string): Promise<DeleteResult> {
+    return await this.delete({
+      refresh_token: refresh_token,
+    });
+  }
+
+  async deleteAllSession(user_id: number): Promise<DeleteResult> {
+    return await this.delete({
+      user_id: user_id,
+    });
   }
 
   async updateToken(oldToken: string, newToken: string): Promise<string> {

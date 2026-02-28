@@ -3,6 +3,7 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './modules/app.module';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
+import { BadRequestException, ValidationPipe } from '@nestjs/common';
 
 const envFile =
   process.env.NODE_ENV === 'production' ? '.env.prod' : '.env.dev';
@@ -20,6 +21,20 @@ async function bootstrap() {
     exposedHeaders: ['authorization'],
     credentials: true,
   });
+
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+      exceptionFactory: (errors) => {
+        console.log('=== VALIDATION ERRORS ===');
+        console.log(JSON.stringify(errors, null, 2));
+        console.log('========================');
+        return new BadRequestException(errors);
+      },
+    }),
+  );
 
   // ВАЖНО: В докере берем PORT из process.env, который прокидывает docker-compose
   const port = process.env.PORT ? parseInt(process.env.PORT) : 8080;

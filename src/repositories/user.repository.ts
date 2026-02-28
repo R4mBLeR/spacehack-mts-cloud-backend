@@ -26,12 +26,12 @@ export class UserRepository extends Repository<User> {
     return this.findOneBy({ username });
   }
 
-  async findUserByEmailOrUsername(
+  async findUsersByEmailOrUsername(
     email: string,
     username: string,
-  ): Promise<User | null> {
-    return this.findOne({
-      where: [{ email }, { username }],
+  ): Promise<User[]> {
+    return await this.find({
+      where: [{ email: email }, { username: username }],
     });
   }
 
