@@ -39,7 +39,13 @@ export class AuthController {
     );
 
     res.setHeader('access_token', tokensPair.accessToken);
-    res.setHeader('refresh_token', tokensPair.refreshToken);
+    res.cookie('refresh_token', tokensPair.refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/',
+    });
 
     return user;
   }
@@ -57,8 +63,13 @@ export class AuthController {
     );
 
     res.setHeader('access_token', tokensPair.accessToken);
-    res.setHeader('refresh_token', tokensPair.refreshToken);
-
+    res.cookie('refresh_token', tokensPair.refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/',
+    });
     return user;
   }
 
