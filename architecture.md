@@ -1,6 +1,6 @@
 # MTS Spacehack Backend: Deep Dive Architecture
 
-This document provides an exhaustive technical breakdown of the backend infrastructure, logic, and security patterns. It is designed to be highly detailed for both human developers and AI agents.
+This document provides an exhaustive technical breakdown of the backend infrastructure, logic, and security patterns.
 
 ---
 
@@ -8,133 +8,83 @@ This document provides an exhaustive technical breakdown of the backend infrastr
 
 The application lifecycle begins here. Key responsibilities:
 
-- **Environment Management:** Dynamically loads `.env.prod` or `.env.dev` based on `NODE_ENV`.
-- **CORS Configuration:** Strictly defined to allow mobile/web clients. It permits standard methods (GET, POST, PUT, DELETE, PATCH) and exposes the `authorization` header.
-- **Global Prefix:** All API routes are prefixed with `/api`.
-- **Swagger Integration:** A full OpenAPI 3.0 documentation suite is served at `/swagger`.
-- **Port Binding:** Defaults to `8080`, or follows the `PORT` environment variable.
+- **Environment Management:** Dynamically loads `.env.prod` or `.env.dev` (uses `127.0.0.1` for local DB to avoid IPv6 issues).
+- **Cookie Parsing:** Uses `cookie-parser` middleware to support secure `HttpOnly` tokens.
+- **Global Validation:** Implements `ValidationPipe` with `whitelist: true` and `forbidNonWhitelisted: true`.
+- **CORS Configuration:** Strictly defined to allow mobile/web clients.
+- **Swagger Integration:** OpenAPI 3.0 suite at `/swagger`.
 
 ---
 
 ## 2. Modular Architecture (NestJS Core)
 
-The project is strictly modular, ensuring high maintainability and testability.
-
-- **`AppModule` (`src/modules/app.module.ts`)**: The root container that imports all feature modules.
-- **`DatabaseModule` (`src/modules/database.module.ts`)**: Handles the TypeORM connection to PostgreSQL. It features `synchronize: true` in development for automatic schema updates.
-- **`AuthModule` (`src/modules/auth.module.ts`)**: Manages the security perimeter, including JWT issuance, password hashing, and session persistence.
-- **`UsersModule` (`src/modules/users.module.ts`)**: Handles user profiles, role assignments, and permission mapping.
+- **`AppModule` (`src/modules/app.module.ts`)**: The root container.
+- **`DatabaseModule` (`src/modules/database.module.ts`)**: TypeORM connection.
+- **`AuthModule` (`src/modules/auth.module.ts`)**: Now explicitly imports `TypeOrmModule.forFeature([Session])`.
+- **`UsersModule` (`src/modules/users.module.ts`)**: Handles user identity.
 
 ---
 
-## 3. The Five-Layer Logic Flow
-
-The system follows a refined version of the **Layered Architecture** pattern:
+## 3. The Five-Layer Logic Flow (Refactored)
 
 ### 3.1. Entity Layer (`src/models/`)
 
-Defines the "Source of Truth" for the database.
-
-- **`BaseEntityWithId`**: Abstract base class to ensure consistent Primary Key (`id`) naming.
-- **`User` Entity**: Contains core identity data. Includes a `@BeforeInsert()` / `@BeforeUpdate()` hook to automatically hash passwords using `AuthUtils`.
-- **`Role` & `Permission` Entities**: Implement **RBAC (Role-Based Access Control)**. Roles have a "many-to-many" relationship with Permissions and Users.
-- **`Session` Entity**: Specifically stores `refresh_token` strings, linking one or more active devices to a single user.
+- **`User` Entity**: Includes a fix for the "Double Hashing" bug.
+  - **Before:** Hashed password on every update, even if unchanged.
+  - **After:** Uses `@AfterLoad` to store the original hash and `@BeforeUpdate` to compare. Hashing only occurs if the password actually changed.
+- **`Session` Entity**: Stores `refresh_token`.
 
 ### 3.2. Repository Layer (`src/repositories/`)
 
-Encapsulates all database-specific operations.
+- **Pattern Shift**:
+  - **Before:** Custom repositories extended `Repository<T>` and were manually instantiated in constructors.
+  - **After:** Follows the official NestJS pattern. Repositories are `@Injectable()` classes that inject a private `repository: Repository<T>` via `@InjectRepository()`. This improves testability and follows framework standards.
 
-- **`UserRepository`**: Extends TypeORM's `Repository`. Contains specialized methods like `findUserByEmailOrUsername`. No business logic is allowed here.
-- **`SessionRepository`**: Manages the "Token Rotation" logic at the database level (saving, finding, and updating tokens).
+### 3.3. Service Layer (`src/auth/`, `src/services/`)
 
-### 3.3. Service Layer (`src/services/`)
+- **`AuthService`**: Moved from `src/services/` to `src/auth/` for better domain isolation.
+  - **New Feature: Transactions.** `changePassword` now uses `this.dataSource.transaction` to ensure password updates and session invalidations happen atomically.
+  - **New Feature: Security.** Invalidates all sessions on password change.
+- **`UsersService`**:
+  - **Fix:** `create` method corrected to check for existing users by `username` (previously had a field mismatch bug).
 
-The "Brain" of the application where business rules live.
+### 3.4. Controller Layer
 
-- **`AuthService`**: Handles the heavy lifting of authentication.
-  - **Login/Register:** Validates credentials and calls `generateNewTokens()`.
-  - **Refresh Logic:** Implements **Refresh Token Rotation**, replacing old tokens with new ones upon use to prevent replay attacks.
-- **`UsersService`**: Orchestrates user-related tasks, coordinating between the `UserRepository` and other modules.
-  - **Update Logic:** Requires the user's current password in the request body for identity verification. Note that the password itself is not updated through this flow.
-
-### 3.4. Controller Layer (`src/controllers/`, `src/auth/`)
-
-The HTTP Interceptor layer.
-
-- **`AuthController`**: Exposes `/api/auth/register`, `/login`, and `/refresh`.
-- **`UsersController`**: Exposes `/api/users`. Crucially protected by decorators like `@HasRoles(Roles.ADMIN)` for sensitive operations or `JwtGuard` for personal profile management.
-  - **`PUT /api/users`**: Allows authenticated users to update their own profiles.
-
-### 3.5. DTO Layer (`src/dto/`, `src/auth/dto/`)
-
-Data Transfer Objects ensure that incoming data is strictly validated before reaching the Controller.
-
-- **`CreateUserDto`**: Uses `class-validator` to enforce email formats, password length (min 8 chars), and phone number patterns. The `username` must be at least 3 characters.
-- **`UpdateUserDto`**: Inherits from `CreateUserDto` but makes all fields optional except for `password`, which is required for identity verification.
+- **`AuthController` (`src/auth/auth.controller.ts`)**:
+  - **Before:** All tokens passed via `Authorization` headers.
+  - **After:** `refresh_token` is handled via `HttpOnly` cookies. Added `logout`, `logout_all`, and `change_password` endpoints.
+- **`UsersController`**: Personal profile management with `JwtGuard`.
 
 ---
 
 ## 4. Security & Authentication Deep Dive
 
-### 4.1. JWT Strategy
+### 4.1. Token Strategy (Refactored)
 
-- **Access Token:**
-  - **Type:** JWT (Signed with `JWT_SECRET`).
-  - **Lifetime:** 15 minutes.
-  - **Transmission:** Passed in the `Authorization: Bearer <token>` header.
-  - **Payload:** `{ id: userId, username: string, roles: string[] }`.
+- **Access Token:** JWT, 15m lifetime, `Authorization: Bearer` header.
 - **Refresh Token:**
-  - **Type:** 128-character random hex string (generated from 64 random bytes).
-  - **Storage:** Persisted in PostgreSQL (`sessions` table).
-  - **Lifetime:** Single-use (Rotation pattern).
-  - **Transmission:** Passed in the `Authorization: Bearer <token>` header during the refresh flow.
+  - **Before:** Sent in headers. Visible to client-side JS.
+  - **After:** Sent in `HttpOnly` cookie (`refresh_token`). **Invisible to client-side JavaScript**, providing strong protection against XSS.
 
-### 4.2. Guards & Decorators
+### 4.2. Password Update Flow
 
-- **`RolesGuard` (`src/auth/guards/roles.guard.ts`)**: Verifies both the JWT signature and required roles.
-- **`JwtGuard` (`src/auth/guards/jwt.guard.ts`)**: A lighter guard that only verifies the JWT signature and attaches the user's `id` and `username` to the request object.
-- **`@HasRoles()` Decorator**: A custom metadata decorator used to tag routes with specific permission requirements (e.g., `admin`, `user`).
-- **`@CurrentUserId()` Decorator**: Automatically extracts the `userId` from the request object (populated by `JwtGuard`).
+- **Before:** Status `401` on duplicate password.
+- **After:** Status `400 BadRequestException` with message `PASSWORDS_IS_DUPLICATE`.
 
 ---
 
 ## 5. Deployment & DevOps Infrastructure
 
 - **Dockerization:**
-  - `Dockerfile`: Multi-stage build for a lean production image.
-  - `docker-compose.yml`: Orchestrates the NestJS container and a PostgreSQL 15 container.
-- **Environment Separation:**
-  - `.env.dev`: Local development settings.
-  - `.env.prod`: Production-ready settings with restricted access.
+  - `Dockerfile`: Multi-stage build (uses `node:22-slim`).
+  - `docker-compose.dev.yml`: Added for local development with port `5050`.
 
 ---
 
----
+## 6. Mobile Developer Quick Start
 
-## 7. Production Infrastructure (DigitalOcean)
-
-- **Entry Point:** Public IP `159.89.30.73` mapped to `kurumi.software`.
-- **Reverse Proxy:** Nginx (v1.24.0) handles SSL termination.
-- **SSL/TLS:** Let's Encrypt certificates managed via Certbot.
-- **Docker Network:**
-  - `mts_backend`: Internal NestJS container (Port 8080).
-  - `mts_postgres`: Internal PostgreSQL container (Port 5432) - **Securely reachable via SSH Tunnel (bound to 127.0.0.1)**.
-  - Both share the `mts_network` bridge.
-
----
-
-## 8. Mobile Developer Quick Start
-
-- **Base URL:** `https://kurumi.software/api`
-- **Swagger UI:** `https://kurumi.software/swagger/`
+- **Base URL:** `http://localhost:5050/api` (Dev) / `https://kurumi.software/api` (Prod)
 - **Authentication Flow:**
-  1. `POST /auth/register` to create a user.
-  2. `POST /auth/login` to receive `accessToken` and `refreshToken`.
-  3. Include `Authorization: Bearer <accessToken>` in all restricted requests.
-  4. If `401 Unauthorized` occurs, call `POST /auth/refresh` with the `refreshToken` in the `Authorization: Bearer <refreshToken>` header.
-
----
-
-## 9. Request Lifecycle Diagram
-
-... [rest of the lifecycle remains the same]
+  1. `POST /auth/login` sets a `refresh_token` cookie.
+  2. Use `accessToken` from response body in `Authorization: Bearer`.
+  3. For `401`, call `POST /auth/refresh`. **Note:** No need to send the refresh token manually; the browser/client should send the cookie automatically.

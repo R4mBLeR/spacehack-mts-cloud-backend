@@ -11,11 +11,12 @@ import {
   UseGuards,
   Get,
   Param,
+  Req,
 } from '@nestjs/common';
 import { LoginUserDto } from './dto/login-user.dto';
 import { AuthService } from './auth.service';
 import { CreateUserDto } from '../dto/create-user.dto';
-import { ApiBearerAuth, ApiHeader } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiCookieAuth } from '@nestjs/swagger';
 import { User } from '../models/user.entity';
 import { JwtGuard } from './guards/jwt.guard';
 import { ChangePasswordDto } from './dto/change-password.dto';
@@ -74,19 +75,24 @@ export class AuthController {
   }
 
   @Post('refresh')
-  @ApiBearerAuth('access-token')
-  @ApiHeader({ name: 'authorization', required: false })
-  async refresh(@Headers('authorization') authorizationHeader: string) {
-    if (!authorizationHeader) {
-      throw new UnauthorizedException('INVALID_AUTHORIZATION_HEADER');
+  @ApiCookieAuth('refresh_token')
+  async refresh(@Req() req, @Res({ passthrough: true }) res) {
+    const token = req.cookies?.['refresh_token'];
+    
+    if (!token) {
+      throw new UnauthorizedException('MISSING_REFRESH_TOKEN');
     }
 
-    if (!authorizationHeader.startsWith('Bearer ')) {
-      throw new UnauthorizedException('INVALID_AUTHORIZATION_HEADER');
-    }
-
-    const token = authorizationHeader.substring(7);
-    return this.authService.refresh(token);
+    const tokensPair = await this.authService.refresh(token);
+    res.setHeader('access_token', tokensPair.accessToken);
+    res.cookie('refresh_token', tokensPair.refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/',
+    });
+    return { success: true };
   }
 
   @ApiBearerAuth('access-token')
@@ -100,35 +106,31 @@ export class AuthController {
   }
 
   @Delete('logout')
-  @ApiBearerAuth('access-token')
-  @ApiHeader({ name: 'authorization', required: false })
-  async logout(@Headers('authorization') authorizationHeader: string) {
-    if (!authorizationHeader) {
-      throw new UnauthorizedException('INVALID_AUTHORIZATION_HEADER');
+  @ApiCookieAuth('refresh_token')
+  async logout(@Req() req, @Res({ passthrough: true }) res) {
+    const token = req.cookies?.['refresh_token'];
+    
+    if (!token) {
+      throw new UnauthorizedException('MISSING_REFRESH_TOKEN');
     }
 
-    if (!authorizationHeader.startsWith('Bearer ')) {
-      throw new UnauthorizedException('INVALID_AUTHORIZATION_HEADER');
-    }
-
-    const token = authorizationHeader.substring(7);
-    return this.authService.logout(token);
+    await this.authService.logout(token);
+    res.clearCookie('refresh_token');
+    return { success: true };
   }
 
   @Delete('logout_all')
-  @ApiBearerAuth('access-token')
-  @ApiHeader({ name: 'authorization', required: false })
-  async logoutAll(@Headers('authorization') authorizationHeader: string) {
-    if (!authorizationHeader) {
-      throw new UnauthorizedException('INVALID_AUTHORIZATION_HEADER');
+  @ApiCookieAuth('refresh_token')
+  async logoutAll(@Req() req, @Res({ passthrough: true }) res) {
+    const token = req.cookies?.['refresh_token'];
+    
+    if (!token) {
+      throw new UnauthorizedException('MISSING_REFRESH_TOKEN');
     }
 
-    if (!authorizationHeader.startsWith('Bearer ')) {
-      throw new UnauthorizedException('INVALID_AUTHORIZATION_HEADER');
-    }
-
-    const token = authorizationHeader.substring(7);
-    return this.authService.logout_all(token);
+    await this.authService.logout_all(token);
+    res.clearCookie('refresh_token');
+    return { success: true };
   }
 
   // @Post()

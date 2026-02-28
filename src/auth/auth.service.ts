@@ -3,6 +3,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
   UnauthorizedException,
+  BadRequestException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../services/users.service';
@@ -14,6 +15,7 @@ import { AuthUtils } from '../utils/auth.utils';
 import { SessionRepository } from '../repositories/session.repository';
 import { Role } from '../models/role.entity';
 import { User } from '../models/user.entity';
+import { DataSource } from 'typeorm';
 import { ChangePasswordDto } from './dto/change-password.dto';
 
 @Injectable()
@@ -24,6 +26,7 @@ export class AuthService {
     private sessionRepository: SessionRepository,
     private jwtService: JwtService,
     private authUtils: AuthUtils,
+    private dataSource: DataSource,
   ) {}
 
   async register(createUserDto: CreateUserDto): Promise<User> {
@@ -108,13 +111,16 @@ export class AuthService {
     );
 
     if (isNewPasswordSame) {
-      throw new UnauthorizedException('PASSWORDS_IS_DUPLICATE');
+      throw new BadRequestException('PASSWORDS_IS_DUPLICATE');
     }
 
     user.password = changePasswordDto.newPassword;
 
-    await this.userRepository.save(user);
-    await this.sessionRepository.deleteAllSession(user.id);
+    await this.dataSource.transaction(async (manager) => {
+      await manager.save(User, user);
+      await manager.delete('Session', { user_id: user.id });
+    });
+
     return user;
   }
 

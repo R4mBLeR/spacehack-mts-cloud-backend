@@ -86,18 +86,51 @@ paths:
   /api/auth/refresh:
     post:
       operationId: AuthController_refresh
-      parameters:
-        - name: authorization
-          description: Bearer refresh_token
-          required: true
-          in: header
-          schema:
-            type: string
+      parameters: []
+      responses:
+        '201':
+          description: ''
+      security:
+        - refresh-token: []
+      tags:
+        - Auth
+  /api/auth/change_password:
+    post:
+      operationId: AuthController_changePassword
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordDto'
       responses:
         '201':
           description: ''
       security:
         - access-token: []
+      tags:
+        - Auth
+  /api/auth/logout:
+    delete:
+      operationId: AuthController_logout
+      parameters: []
+      responses:
+        '200':
+          description: ''
+      security:
+        - refresh-token: []
+      tags:
+        - Auth
+  /api/auth/logout_all:
+    delete:
+      operationId: AuthController_logoutAll
+      parameters: []
+      responses:
+        '200':
+          description: ''
+      security:
+        - refresh-token: []
       tags:
         - Auth
 components:
@@ -107,6 +140,10 @@ components:
       bearerFormat: JWT
       type: http
       in: header
+    refresh-token:
+      type: apiKey
+      in: cookie
+      name: refresh_token
   schemas:
     CreateUserDto:
       type: object
@@ -202,3 +239,19 @@ components:
           example: '+123456789'
       required:
         - password
+    ChangePasswordDto:
+      type: object
+      properties:
+        oldPassword:
+          type: string
+          description: Current password
+          example: '12345678'
+          format: password
+        newPassword:
+          type: string
+          description: New password (must be different)
+          example: '87654321'
+          format: password
+      required:
+        - oldPassword
+        - newPassword

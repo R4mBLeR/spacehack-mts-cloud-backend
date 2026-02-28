@@ -4,6 +4,7 @@ import { AppModule } from './modules/app.module';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 import { BadRequestException, ValidationPipe } from '@nestjs/common';
+import cookieParser from 'cookie-parser';
 
 const envFile =
   process.env.NODE_ENV === 'production' ? '.env.prod' : '.env.dev';
@@ -21,6 +22,8 @@ async function bootstrap() {
     exposedHeaders: ['authorization'],
     credentials: true,
   });
+
+  app.use(cookieParser());
 
   app.useGlobalPipes(
     new ValidationPipe({
