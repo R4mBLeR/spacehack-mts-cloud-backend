@@ -1,90 +1,159 @@
 # MTS Spacehack Backend: Deep Dive Architecture
 
-This document provides an exhaustive technical breakdown of the backend infrastructure, logic, and security patterns.
+This document provides an exhaustive technical breakdown of the backend infrastructure, logic, and security patterns. It is designed to be a definitive reference for developers and auditors.
 
 ---
 
-## 1. Entry Point & Global Configuration (`/src/main.ts`)
+## 1. System Entry & Global Pipeline (`src/main.ts`)
 
-The application lifecycle begins here. Key responsibilities:
+The application entry point configures the global request-response pipeline.
 
-- **Environment Management:** Dynamically loads `.env.prod` or `.env.dev` (uses `127.0.0.1` for local DB to avoid IPv6 issues).
-- **Cookie Parsing:** Uses `cookie-parser` middleware to support secure `HttpOnly` tokens.
-- **Global Validation:** Implements `ValidationPipe` with `whitelist: true` and `forbidNonWhitelisted: true`.
-- **CORS Configuration:** Strictly defined to allow mobile/web clients.
-- **Swagger Integration:** OpenAPI 3.0 suite at `/swagger`.
+### 1.1. Middleware & Configuration
+
+- **Cookie Parser**: `app.use(cookieParser())` is registered to enable the server to parse the `Cookie` header into the `req.cookies` object. This is essential for the `HttpOnly` refresh token strategy.
+- **Environment Context**: Loads `.env.dev` or `.env.prod`.
+  - **Dev Note**: `DB_HOST` is set to `127.0.0.1` locally to bypass DNS/IPv6 resolution latencies common in development environments.
+- **Global Prefix**: All routes are encapsulated under the `/api` namespace.
+
+### 1.2. Global Validation Pipe
+
+The system uses a highly restrictive `ValidationPipe`:
+
+```typescript
+new ValidationPipe({
+  whitelist: true, // Strips properties not in the DTO
+  forbidNonWhitelisted: true, // Throws error if unexpected properties exist
+  transform: true, // Auto-transforms payloads to DTO instances
+});
+```
+
+This configuration prevents **Mass Assignment** attacks and ensures that the API strictly adheres to its interface.
 
 ---
 
-## 2. Modular Architecture (NestJS Core)
+## 2. Modular Structure
 
-- **`AppModule` (`src/modules/app.module.ts`)**: The root container.
-- **`DatabaseModule` (`src/modules/database.module.ts`)**: TypeORM connection.
-- **`AuthModule` (`src/modules/auth.module.ts`)**: Now explicitly imports `TypeOrmModule.forFeature([Session])`.
-- **`UsersModule` (`src/modules/users.module.ts`)**: Handles user identity.
+- **`AppModule`**: The root module.
+- **`AuthModule`**: The security pillar. It configures the `JwtModule` asynchronously using `ConfigService` to ensure `JWT_SECRET` is loaded before the module initializes.
+- **`DatabaseModule`**: Manages the TypeORM lifecycle. In development, `synchronize: true` is enabled for schema agility.
 
 ---
 
-## 3. The Five-Layer Logic Flow (Refactored)
+## 3. The Logic Layers (Deep Dive)
 
 ### 3.1. Entity Layer (`src/models/`)
 
-- **`User` Entity**: Includes a fix for the "Double Hashing" bug.
-  - **Before:** Hashed password on every update, even if unchanged.
-  - **After:** Uses `@AfterLoad` to store the original hash and `@BeforeUpdate` to compare. Hashing only occurs if the password actually changed.
-- **`Session` Entity**: Stores `refresh_token`.
+Entities represent the schema and include "Active Record" style hooks.
+
+#### **User Entity & Hashing Lifecycle**
+
+- **Before**: Blindly hashed `password` on every `BeforeUpdate`, leading to "Double Hashing" if the profile was updated without changing the password.
+- **After (Security Fix)**:
+  - `AfterLoad() @originalPassword = password`: Stores the hash when the entity is fetched.
+  - `BeforeUpdate()`: Only hashes if `this.password !== this.originalPassword`.
 
 ### 3.2. Repository Layer (`src/repositories/`)
 
-- **Pattern Shift**:
-  - **Before:** Custom repositories extended `Repository<T>` and were manually instantiated in constructors.
-  - **After:** Follows the official NestJS pattern. Repositories are `@Injectable()` classes that inject a private `repository: Repository<T>` via `@InjectRepository()`. This improves testability and follows framework standards.
+Repositories handle raw data access, abstracting TypeORM's complexity.
+
+- **Refactoring (Composition over Inheritance)**:
+  - **Before**: Custom classes extended `Repository<T>`. This often led to issues with NestJS's dependency injection and unit testing.
+  - **After**: Repositories are standard `@Injectable()` classes. They inject the TypeORM `Repository` via `@InjectRepository(Entity)`. This follow's NestJS best practices for decoupling.
 
 ### 3.3. Service Layer (`src/auth/`, `src/services/`)
 
-- **`AuthService`**: Moved from `src/services/` to `src/auth/` for better domain isolation.
-  - **New Feature: Transactions.** `changePassword` now uses `this.dataSource.transaction` to ensure password updates and session invalidations happen atomically.
-  - **New Feature: Security.** Invalidates all sessions on password change.
-- **`UsersService`**:
-  - **Fix:** `create` method corrected to check for existing users by `username` (previously had a field mismatch bug).
+Business logic lives here. Services are the only place where cross-entity orchestration occurs.
 
-### 3.4. Controller Layer
+#### **AuthService: Token Rotation Logic**
 
-- **`AuthController` (`src/auth/auth.controller.ts`)**:
-  - **Before:** All tokens passed via `Authorization` headers.
-  - **After:** `refresh_token` is handled via `HttpOnly` cookies. Added `logout`, `logout_all`, and `change_password` endpoints.
-- **`UsersController`**: Personal profile management with `JwtGuard`.
+1. **Login**: Generates an **Access Token** (JWT, 15m) and a **Refresh Token** (64-byte random hex).
+2. **Refresh (Rotation Pattern)**:
+   - When a user refreshes, the server finds the session by the old token.
+   - It generates a **brand new** refresh token.
+   - It updates the database record: `oldToken` is replaced by `newToken`.
+   - The old token is now invalid (Single-use tokens). This prevents replay attacks if a refresh token is stolen.
 
----
+#### **AuthService: Transactional Safety**
 
-## 4. Security & Authentication Deep Dive
+```typescript
+await this.dataSource.transaction(async (manager) => {
+  await manager.save(User, user); // Update password
+  await manager.delete('Session', { user_id: user.id }); // Clear ALL sessions
+});
+```
 
-### 4.1. Token Strategy (Refactored)
-
-- **Access Token:** JWT, 15m lifetime, `Authorization: Bearer` header.
-- **Refresh Token:**
-  - **Before:** Sent in headers. Visible to client-side JS.
-  - **After:** Sent in `HttpOnly` cookie (`refresh_token`). **Invisible to client-side JavaScript**, providing strong protection against XSS.
-
-### 4.2. Password Update Flow
-
-- **Before:** Status `401` on duplicate password.
-- **After:** Status `400 BadRequestException` with message `PASSWORDS_IS_DUPLICATE`.
+On password change, we use a **Database Transaction**. This ensures that if the password update succeeds, all existing sessions (logins on other devices) are nuked simultaneously. If one fails, neither happens.
 
 ---
 
-## 5. Deployment & DevOps Infrastructure
+## 4. Security Flow Diagrams
 
-- **Dockerization:**
-  - `Dockerfile`: Multi-stage build (uses `node:22-slim`).
-  - `docker-compose.dev.yml`: Added for local development with port `5050`.
+### 4.1. Authentication Sequence (Login)
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant AuthController
+    participant AuthService
+    participant SessionRepo
+    participant DB
+
+    Client->>AuthController: POST /auth/login (username, password)
+    AuthController->>AuthService: login(dto)
+    AuthService->>DB: Find User by Username
+    AuthService->>AuthService: Validate Bcrypt Hash
+    AuthService->>AuthService: generateNewTokens(userId)
+    AuthService->>SessionRepo: addSession(userId, randomToken)
+    SessionRepo->>DB: INSERT INTO sessions
+    AuthService-->>AuthController: { accessToken, refreshToken }
+    AuthController->>Client: Header: access_token, Cookie: refresh_token (HttpOnly)
+```
+
+### 4.2. Token Refresh Sequence (Rotation)
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant AuthController
+    participant AuthService
+    participant SessionRepo
+    participant DB
+
+    Client->>AuthController: POST /auth/refresh (includes Cookie)
+    AuthController->>AuthService: refresh(cookieToken)
+    AuthService->>SessionRepo: findSessionByToken(cookieToken)
+    SessionRepo->>DB: SELECT * FROM sessions JOIN users
+    AuthService->>AuthService: updateTokens(userId, oldToken)
+    AuthService->>SessionRepo: updateToken(oldToken, newToken)
+    SessionRepo->>DB: UPDATE sessions SET token = newToken
+    AuthService-->>AuthController: { accessToken, refreshToken }
+    AuthController->>Client: New Header + New Cookie
+```
 
 ---
 
-## 6. Mobile Developer Quick Start
+## 5. Deployment & Runtime Infrastructure
 
-- **Base URL:** `http://localhost:5050/api` (Dev) / `https://kurumi.software/api` (Prod)
-- **Authentication Flow:**
-  1. `POST /auth/login` sets a `refresh_token` cookie.
-  2. Use `accessToken` from response body in `Authorization: Bearer`.
-  3. For `401`, call `POST /auth/refresh`. **Note:** No need to send the refresh token manually; the browser/client should send the cookie automatically.
+### 5.1. Docker Strategy
+
+- **Image**: `node:22-slim`. Standardized on a modern LTS version after identifying non-existent tags (v25) in previous versions.
+- **Multi-stage**: Builds the app in a `builder` stage, then copies only `dist` and `node_modules` to the production stage to keep image size minimal (~150MB).
+
+### 5.2. Networking
+
+- **Port 5050 (Dev)**: Mapped to avoid conflicts with other local services.
+- **Database Access**: The production DB is bound to `127.0.0.1` inside the VPS. External access (e.g., via DBeaver) is done strictly through an **SSH Tunnel**.
+
+---
+
+## 6. Mobile Developer Guidance
+
+1. **Host**: `http://localhost:5050/api` (Local) / `https://kurumi.software/api` (Prod).
+2. **Credentials Storage**:
+   - Access Token: Store in secure memory (not persistent).
+   - Refresh Token: Handled by the browser/WebView cookie jar. Set `credentials: 'include'` in fetch calls.
+3. **Response Statuses to Handle**:
+   - `201/200`: Success.
+   - `400 PASSWORDS_IS_DUPLICATE`: User tried to change password to the current one.
+   - `401 MISSING_REFRESH_TOKEN`: User must log in again.
+   - `403 FORBIDDEN`: Insufficient roles/permissions.
