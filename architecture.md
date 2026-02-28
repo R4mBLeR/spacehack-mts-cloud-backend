@@ -136,7 +136,7 @@ sequenceDiagram
 
 ### 5.1. Docker Strategy
 
-- **Image**: `node:22-slim`. Standardized on a modern LTS version after identifying non-existent tags (v25) in previous versions.
+- **Image**: `node:25-slim`. Standardized on a modern LTS version.
 - **Multi-stage**: Builds the app in a `builder` stage, then copies only `dist` and `node_modules` to the production stage to keep image size minimal (~150MB).
 
 ### 5.2. Networking
