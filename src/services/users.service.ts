@@ -49,7 +49,7 @@ export class UsersService {
   async create(createUserDto: CreateUserDto): Promise<User> {
     const existingUsers = await this.userRepository.findUsersByEmailOrUsername(
       createUserDto.email,
-      createUserDto.password,
+      createUserDto.username,
     );
     if (existingUsers.length > 0) {
       throw new ConflictException('CURRENT_EMAIL_OR_USERNAME_ALREADY_EXISTS');

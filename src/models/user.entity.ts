@@ -6,6 +6,7 @@ import {
   CreateDateColumn,
   ManyToMany,
   JoinTable,
+  AfterLoad,
 } from 'typeorm';
 import { AuthUtils } from '../utils/auth.utils';
 import { Exclude } from 'class-transformer';
@@ -39,13 +40,28 @@ export class User extends BaseEntityWithId {
   @CreateDateColumn()
   created_at: string;
 
+  @Exclude()
+  private originalPassword: string;
+
   @BeforeInsert()
-  @BeforeUpdate()
-  async hashPassword(): Promise<void> {
+  async hashPasswordBeforeInsert(): Promise<void> {
     if (this.password) {
       const bcryptService = new AuthUtils();
       this.password = await bcryptService.hashPassword(this.password);
     }
+  }
+
+  @BeforeUpdate()
+  async hashPasswordBeforeUpdate(): Promise<void> {
+    if (this.password && this.password !== this.originalPassword) {
+      const bcryptService = new AuthUtils();
+      this.password = await bcryptService.hashPassword(this.password);
+    }
+  }
+
+  @AfterLoad()
+  afterLoad() {
+    this.originalPassword = this.password;
   }
 
   @ManyToMany(() => Role, { eager: true })
