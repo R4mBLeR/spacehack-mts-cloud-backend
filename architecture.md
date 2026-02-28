@@ -84,6 +84,15 @@ await this.dataSource.transaction(async (manager) => {
 
 On password change, we use a **Database Transaction**. This ensures that if the password update succeeds, all existing sessions (logins on other devices) are nuked simultaneously. If one fails, neither happens.
 
+### 3.4. Controller Layer
+
+- **`AuthController`**:
+  - **Cookie Transition**: Refresh tokens are now written to and read from `HttpOnly`, `Secure` cookies.
+  - **Endpoints**: `/auth/register`, `/auth/login`, `/auth/refresh`, `/auth/logout`, `/auth/logout_all`, and `/auth/change_password`.
+- **`UsersController`**:
+  - **Identity Protection**: Exposes `/api/users`. Sensitive operations are protected by `RolesGuard`.
+  - **Update Logic**: `PATCH /api/users/update_info` allows authenticated users to update their own profile data (email, phone, name). To prevent account takeovers, it requires the user's current password in the `UpdateUserDto`.
+
 ---
 
 ## 4. Security Flow Diagrams

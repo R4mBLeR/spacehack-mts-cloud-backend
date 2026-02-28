@@ -39,6 +39,33 @@ paths:
           description: ''
       tags:
         - Users
+  /api/users/update_info:
+    patch:
+      operationId: UsersController_updateUser
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserDto'
+      responses:
+        '200':
+          description: Successfully updated user profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Bad Request (e.g. invalid data or no changes)
+        '401':
+          description: Unauthorized
+        '404':
+          description: User not found
+      security:
+        - access-token: []
+      tags:
+        - Users
   /api/users/{id}:
     get:
       operationId: UsersController_findOne
