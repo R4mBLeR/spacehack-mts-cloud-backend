@@ -11,7 +11,7 @@ The application lifecycle begins here. Key responsibilities:
 - **Environment Management:** Dynamically loads `.env.prod` or `.env.dev` based on `NODE_ENV`.
 - **CORS Configuration:** Strictly defined to allow mobile/web clients. It permits standard methods (GET, POST, PUT, DELETE, PATCH) and exposes the `authorization` header.
 - **Global Prefix:** All API routes are prefixed with `/api`.
-- **Swagger Integration:** In non-production environments, a full OpenAPI 3.0 documentation suite is served at `/swagger`.
+- **Swagger Integration:** A full OpenAPI 3.0 documentation suite is served at `/swagger`.
 - **Port Binding:** Defaults to `8080`, or follows the `PORT` environment variable.
 
 ---
@@ -55,7 +55,7 @@ The "Brain" of the application where business rules live.
   - **Login/Register:** Validates credentials and calls `generateNewTokens()`.
   - **Refresh Logic:** Implements **Refresh Token Rotation**, replacing old tokens with new ones upon use to prevent replay attacks.
 - **`UsersService`**: Orchestrates user-related tasks, coordinating between the `UserRepository` and other modules.
-  - **Update Logic:** Requires the user's current password for any profile changes to ensure security.
+  - **Update Logic:** Requires the user's current password in the request body for identity verification. Note that the password itself is not updated through this flow.
 
 ### 3.4. Controller Layer (`src/controllers/`, `src/auth/`)
 
@@ -69,7 +69,8 @@ The HTTP Interceptor layer.
 
 Data Transfer Objects ensure that incoming data is strictly validated before reaching the Controller.
 
-- **`CreateUserDto`**: Uses `class-validator` to enforce email formats, password length (min 8 chars), and phone number patterns.
+- **`CreateUserDto`**: Uses `class-validator` to enforce email formats, password length (min 8 chars), and phone number patterns. The `username` must be at least 3 characters.
+- **`UpdateUserDto`**: Inherits from `CreateUserDto` but makes all fields optional except for `password`, which is required for identity verification.
 
 ---
 
@@ -83,7 +84,7 @@ Data Transfer Objects ensure that incoming data is strictly validated before rea
   - **Transmission:** Passed in the `Authorization: Bearer <token>` header.
   - **Payload:** `{ id: userId, username: string, roles: string[] }`.
 - **Refresh Token:**
-  - **Type:** 64-character random hex string.
+  - **Type:** 128-character random hex string (generated from 64 random bytes).
   - **Storage:** Persisted in PostgreSQL (`sessions` table).
   - **Lifetime:** Single-use (Rotation pattern).
   - **Transmission:** Passed in the `Authorization: Bearer <token>` header during the refresh flow.

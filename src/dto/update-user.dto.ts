@@ -6,11 +6,11 @@ export class UpdateUserDto extends PartialType(CreateUserDto) {
   @ApiProperty({
     description: 'New user email address',
     example: 'john.doe@example.com',
-    required: true,
     type: String,
     format: 'email',
   })
   @IsEmail()
+  @IsOptional()
   email?: string;
 
   @ApiProperty({
@@ -27,8 +27,8 @@ export class UpdateUserDto extends PartialType(CreateUserDto) {
     description: 'New user first name',
     example: 'John',
     minLength: 2,
-    required: true,
   })
+  @IsOptional()
   @IsString()
   @MinLength(2)
   firstName?: string;
@@ -36,17 +36,14 @@ export class UpdateUserDto extends PartialType(CreateUserDto) {
   @ApiProperty({
     description: 'New user last name',
     example: 'Doe',
-    required: true,
-    nullable: true,
   })
+  @IsOptional()
   @IsString()
   lastName?: string;
 
   @ApiProperty({
     description: 'User surname',
     example: 'Nikolayevich',
-    required: false,
-    nullable: true,
   })
   @IsOptional()
   @IsString()
@@ -55,8 +52,8 @@ export class UpdateUserDto extends PartialType(CreateUserDto) {
   @ApiProperty({
     description: 'User phone number',
     example: '+123456789',
-    required: true,
   })
   @IsString()
-  phoneNumber: string;
+  @IsOptional()
+  phoneNumber?: string;
 }
