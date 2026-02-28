@@ -55,13 +55,15 @@ The "Brain" of the application where business rules live.
   - **Login/Register:** Validates credentials and calls `generateNewTokens()`.
   - **Refresh Logic:** Implements **Refresh Token Rotation**, replacing old tokens with new ones upon use to prevent replay attacks.
 - **`UsersService`**: Orchestrates user-related tasks, coordinating between the `UserRepository` and other modules.
+  - **Update Logic:** Requires the user's current password for any profile changes to ensure security.
 
 ### 3.4. Controller Layer (`src/controllers/`, `src/auth/`)
 
 The HTTP Interceptor layer.
 
 - **`AuthController`**: Exposes `/api/auth/register`, `/login`, and `/refresh`.
-- **`UsersController`**: Exposes `/api/users`. Crucially protected by decorators like `@HasRoles(Roles.ADMIN)`.
+- **`UsersController`**: Exposes `/api/users`. Crucially protected by decorators like `@HasRoles(Roles.ADMIN)` for sensitive operations or `JwtGuard` for personal profile management.
+  - **`PUT /api/users`**: Allows authenticated users to update their own profiles.
 
 ### 3.5. DTO Layer (`src/dto/`, `src/auth/dto/`)
 
@@ -79,7 +81,7 @@ Data Transfer Objects ensure that incoming data is strictly validated before rea
   - **Type:** JWT (Signed with `JWT_SECRET`).
   - **Lifetime:** 15 minutes.
   - **Transmission:** Passed in the `Authorization: Bearer <token>` header.
-  - **Payload:** `{ sub: userId, username: string, roles: string[] }`.
+  - **Payload:** `{ id: userId, username: string, roles: string[] }`.
 - **Refresh Token:**
   - **Type:** 64-character random hex string.
   - **Storage:** Persisted in PostgreSQL (`sessions` table).
@@ -88,8 +90,10 @@ Data Transfer Objects ensure that incoming data is strictly validated before rea
 
 ### 4.2. Guards & Decorators
 
-- **`RolesGuard` (`src/auth/guards/roles.guard.ts`)**: A custom NestJS Guard that intercepts every request to protected routes. It verifies the JWT signature and checks if the `roles` array in the payload matches the requirements.
+- **`RolesGuard` (`src/auth/guards/roles.guard.ts`)**: Verifies both the JWT signature and required roles.
+- **`JwtGuard` (`src/auth/guards/jwt.guard.ts`)**: A lighter guard that only verifies the JWT signature and attaches the user's `id` and `username` to the request object.
 - **`@HasRoles()` Decorator**: A custom metadata decorator used to tag routes with specific permission requirements (e.g., `admin`, `user`).
+- **`@CurrentUserId()` Decorator**: Automatically extracts the `userId` from the request object (populated by `JwtGuard`).
 
 ---
 
@@ -113,7 +117,7 @@ Data Transfer Objects ensure that incoming data is strictly validated before rea
 - **SSL/TLS:** Let's Encrypt certificates managed via Certbot.
 - **Docker Network:**
   - `mts_backend`: Internal NestJS container (Port 8080).
-  - `mts_postgres`: Internal PostgreSQL container (Port 5432).
+  - `mts_postgres`: Internal PostgreSQL container (Port 5432) - **Securely reachable via SSH Tunnel (bound to 127.0.0.1)**.
   - Both share the `mts_network` bridge.
 
 ---
