@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { User } from '../models/user.entity';
 import { CreateUserDto } from '../dto/create-user.dto';
@@ -77,7 +78,7 @@ export class UsersService {
     );
 
     if (!isValidPassword) {
-      throw new ConflictException('PASSWORD_IS_INCORRECT');
+      throw new UnauthorizedException('PASSWORD_IS_INCORRECT');
     }
     if (fieldsToUpdate.length === 0 && !password) {
       throw new BadRequestException('NO_FIELDS_TO_UPDATE');
@@ -86,6 +87,14 @@ export class UsersService {
     fieldsToUpdate.forEach(([key, value]) => {
       (existingUser as any)[key] = value;
     });
+
+    const isEmailTaken = await this.userRepository.findOne({
+      where: { email: existingUser.email },
+    });
+
+    if (isEmailTaken) {
+      throw new ConflictException('EMAIL_IS_ALREADY_USED');
+    }
 
     return this.userRepository.save(existingUser);
   }

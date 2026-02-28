@@ -11,6 +11,7 @@ import {
   Put,
   ForbiddenException,
   ParseIntPipe,
+  Patch,
 } from '@nestjs/common';
 import { User } from '../models/user.entity';
 import { CreateUserDto } from '../dto/create-user.dto';
@@ -21,7 +22,7 @@ import { Roles } from '../auth/roles';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { JwtGuard } from '../auth/guards/jwt.guard';
 import { UpdateUserDto } from '../dto/update-user.dto';
-import { CurrentUserId } from '../auth/decorators/current.user.id.dto';
+import { CurrentUserId } from '../auth/decorators/current.user.decorator.dto';
 import { AuthUtils } from '../utils/auth.utils';
 
 @Controller('users')
@@ -51,7 +52,7 @@ export class UsersController {
     return this.usersService.findOne(+id);
   }
 
-  @Put()
+  @Patch()
   @ApiBearerAuth('access-token')
   @UseGuards(JwtGuard)
   async updateUser(
