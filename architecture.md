@@ -89,6 +89,10 @@ On password change, we use a **Database Transaction**. This ensures that if the 
 - **`AuthController`**:
   - **Cookie Transition**: Refresh tokens are now written to and read from `HttpOnly`, `Secure` cookies.
   - **Endpoints**: `/auth/register`, `/auth/login`, `/auth/refresh`, `/auth/logout`, `/auth/logout_all`, and `/auth/change_password`.
+- **`Change Password Pattern`**:
+  - **Route**: `POST /api/auth/change_password`.
+  - **Logic**: Validates `oldPassword` first. Then checks if `newPassword` is identical to the current one (throws `PASSWORDS_IS_DUPLICATE`).
+  - **Security**: Uses a database transaction. If the password update is successful, it **automatically deletes all active sessions** for that user. This ensures that any stolen refresh tokens on other devices become instantly invalid.
 - **`UsersController`**:
   - **Identity Protection**: Exposes `/api/users`. Sensitive operations are protected by `RolesGuard`.
   - **Update Logic**: `PATCH /api/users/update_info` allows authenticated users to update their own profile data (email, phone, name). To prevent account takeovers, it requires the user's current password in the `UpdateUserDto`.
@@ -162,7 +166,7 @@ sequenceDiagram
    - Access Token: Store in secure memory (not persistent).
    - Refresh Token: Handled by the browser/WebView cookie jar. Set `credentials: 'include'` in fetch calls.
 3. **Response Statuses to Handle**:
-   - `201/200`: Success.
-   - `400 PASSWORDS_IS_DUPLICATE`: User tried to change password to the current one.
    - `401 MISSING_REFRESH_TOKEN`: User must log in again.
+   - `401 PASSWORD_IS_INCORRECT`: Used in password change if current password doesn't match.
+   - `400 PASSWORDS_IS_DUPLICATE`: User tried to change password to the current one.
    - `403 FORBIDDEN`: Insufficient roles/permissions.

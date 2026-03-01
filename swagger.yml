@@ -133,7 +133,11 @@ paths:
               $ref: '#/components/schemas/ChangePasswordDto'
       responses:
         '201':
-          description: ''
+          description: Password changed successfully, returns updated user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
       security:
         - access-token: []
       tags:
@@ -282,3 +286,47 @@ components:
       required:
         - oldPassword
         - newPassword
+    Role:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        role:
+          type: string
+          example: USER
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        email:
+          type: string
+          format: email
+          example: john.doe@example.com
+        username:
+          type: string
+          example: johndoe123
+        firstName:
+          type: string
+          example: John
+        lastName:
+          type: string
+          example: Doe
+          nullable: true
+        surName:
+          type: string
+          example: Nikolayevich
+          nullable: true
+        phoneNumber:
+          type: string
+          example: '+123456789'
+        created_at:
+          type: string
+          format: date-time
+          example: '2026-03-01T10:44:26Z'
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/Role'
