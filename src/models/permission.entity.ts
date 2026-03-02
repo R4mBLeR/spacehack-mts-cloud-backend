@@ -2,7 +2,7 @@ import { Entity, Column, ManyToMany } from 'typeorm';
 import { Role } from './role.entity';
 import { BaseEntityWithId } from './base.entity';
 
-@Entity('permissions')
+@Entity({ schema: 'users', name: 'permissions' })
 export class Permission extends BaseEntityWithId {
   @Column({ unique: true })
   permission: string;

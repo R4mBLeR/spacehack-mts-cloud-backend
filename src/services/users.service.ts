@@ -10,12 +10,16 @@ import { CreateUserDto } from '../dto/create-user.dto';
 import { UserRepository } from '../repositories/user.repository';
 import { UpdateUserDto } from '../dto/update-user.dto';
 import { AuthUtils } from '../utils/auth.utils';
+import { Role } from '../models/role.entity';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 
 @Injectable()
 export class UsersService {
   constructor(
     private userRepository: UserRepository,
     private authUtils: AuthUtils,
+    @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 
   async findAll(): Promise<User[]> {
@@ -51,10 +55,23 @@ export class UsersService {
       createUserDto.email,
       createUserDto.username,
     );
+
     if (existingUsers.length > 0) {
       throw new ConflictException('CURRENT_EMAIL_OR_USERNAME_ALREADY_EXISTS');
     }
-    return this.userRepository.createUser(createUserDto);
+
+    const defaultRole = await this.dataSource
+      .getRepository(Role)
+      .findOne({ where: { role: 'user' } });
+
+    if (!defaultRole) {
+      throw new NotFoundException('DEFAULT_ROLE_NOT_FOUND');
+    }
+
+    return this.userRepository.createUser({
+      ...createUserDto,
+      roles: [defaultRole],
+    });
   }
 
   async update(id: number, updateUserDto: UpdateUserDto): Promise<User> {

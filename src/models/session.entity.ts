@@ -2,7 +2,7 @@ import { Entity, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { User } from './user.entity';
 import { BaseEntityWithId } from './base.entity';
 
-@Entity('sessions')
+@Entity({ schema: 'users', name: 'sessions' })
 export class Session extends BaseEntityWithId {
   @Column()
   refresh_token: string;

@@ -6,6 +6,7 @@ import { User } from '../models/user.entity';
 import { Session } from '../models/session.entity';
 import { Role } from '../models/role.entity';
 import { Permission } from '../models/permission.entity';
+import { VirtualMachine } from '../models/vm.entity';
 
 @Module({
   imports: [
@@ -19,9 +20,10 @@ import { Permission } from '../models/permission.entity';
         username: configService.get('DB_USERNAME', 'postgres'),
         password: configService.get('DB_PASSWORD', 'postgres'),
         database: configService.get('DB_DATABASE', 'mts_db'),
-        entities: [User, Role, Permission, Session],
+        entities: [User, Role, Permission, Session, VirtualMachine],
         autoLoadEntities: true,
-        synchronize: String(configService.get('TYPEORM_SYNCHRONIZE')) === 'true',
+        synchronize:
+          String(configService.get('TYPEORM_SYNCHRONIZE')) === 'true',
         logging: String(configService.get('TYPEORM_LOGGING')) === 'true',
       }),
     }),

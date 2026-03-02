@@ -40,6 +40,7 @@ export class RolesGuard implements CanActivate {
     } catch (e) {
       throw new UnauthorizedException('TOKEN_IS_INVALID');
     }
+    console.log(payload.roles);
 
     const userRoles = payload.roles || [];
     const hasRequiredRole = requiredRoles.some((role) =>
@@ -48,6 +49,11 @@ export class RolesGuard implements CanActivate {
     if (!hasRequiredRole) {
       throw new UnauthorizedException('NO_REQUIRED_ROLE');
     }
+
+    request.user = {
+      id: payload.id,
+      username: payload.username,
+    };
     return true;
   }
 }

@@ -39,14 +39,16 @@ export class UsersController {
   }
 
   @ApiBearerAuth('access-token')
-  @UseGuards(JwtGuard)
+  @UseGuards(RolesGuard)
+  @HasRoles(Roles.ADMIN)
   @Get()
   async findAll(): Promise<User[]> {
     return this.usersService.findAll();
   }
 
   @ApiBearerAuth('access-token')
-  @UseGuards(JwtGuard)
+  @UseGuards(RolesGuard)
+  @HasRoles(Roles.USER)
   @Get(':id')
   async findOne(@Param('id') id: number): Promise<User> {
     return this.usersService.findOne(+id);
@@ -54,7 +56,8 @@ export class UsersController {
 
   @Patch('update_info')
   @ApiBearerAuth('access-token')
-  @UseGuards(JwtGuard)
+  @UseGuards(RolesGuard)
+  @HasRoles(Roles.USER)
   async updateUser(
     @CurrentUserId() userId: number,
     @Body() updateUserDto: UpdateUserDto,

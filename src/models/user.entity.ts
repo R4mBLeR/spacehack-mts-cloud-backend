@@ -13,7 +13,7 @@ import { Exclude } from 'class-transformer';
 import { Role } from './role.entity';
 import { BaseEntityWithId } from './base.entity';
 
-@Entity('users')
+@Entity({ schema: 'users', name: 'users' })
 export class User extends BaseEntityWithId {
   @Column({ unique: true })
   email: string;
@@ -36,6 +36,9 @@ export class User extends BaseEntityWithId {
   @Column()
   @Exclude()
   password: string;
+
+  @Column({ default: 0 })
+  balance: number;
 
   @CreateDateColumn()
   created_at: string;

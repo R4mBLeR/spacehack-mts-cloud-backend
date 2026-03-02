@@ -5,12 +5,14 @@ import { AppService } from '../services/app.service';
 import { DatabaseModule } from './database.module';
 import { UsersModule } from './users.module';
 import { AuthModule } from './auth.module';
+import { VpsModule } from './vps.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     DatabaseModule,
     UsersModule,
+    VpsModule,
     AuthModule,
   ],
   controllers: [AppController],
