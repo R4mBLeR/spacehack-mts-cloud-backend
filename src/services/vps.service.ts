@@ -42,20 +42,23 @@ export class VpsService {
     userId: number,
   ): Promise<VirtualMachine> {
     const vmid = await this.vmRepository.getNextVmid();
+    const node = 'pve'; // или из config: this.configService.get('PROXMOX_NODE')
 
     const upid = await this.proxmox.createVm({
-      node: 'pve',
+      node,
       vmid,
       name: createVmDto.name,
       memory: createVmDto.configuration.ram,
       cores: createVmDto.configuration.cpu,
       scsi0: `local-lvm:${createVmDto.configuration.ssd}`,
       net0: `virtio,bridge=vmbr0`,
+      ostype: 'l26', // Linux 2.6/3.x/4.x/5.x/6.x
+      cpu: 'host',
+      boot: 'order=scsi0',
     });
 
-    await this.proxmox.waitForTask('pve1', upid);
+    await this.proxmox.waitForTask(node, upid);
 
-    // Передаём vmid в репозиторий для сохранения
     return this.vmRepository.createVm(createVmDto, userId, vmid);
   }
 
