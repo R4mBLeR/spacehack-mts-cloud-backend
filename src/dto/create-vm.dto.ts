@@ -14,7 +14,7 @@ export class CreateVmDto {
 
   @ApiProperty({
     description: 'Configuration',
-    example: { cpu: 2, ram: 8, ssd: 16 },
+    example: { cpu: 1, ram: 1, ssd: 1 },
   })
   @Allow()
   configuration: VmConfiguration;

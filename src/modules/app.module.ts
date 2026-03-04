@@ -6,6 +6,8 @@ import { DatabaseModule } from './database.module';
 import { UsersModule } from './users.module';
 import { AuthModule } from './auth.module';
 import { VpsModule } from './vps.module';
+import { TicketsModule } from './tickets.module';
+import { CorporationModule } from './corporation.module';
 
 @Module({
   imports: [
@@ -13,6 +15,8 @@ import { VpsModule } from './vps.module';
     DatabaseModule,
     UsersModule,
     VpsModule,
+    TicketsModule,
+    CorporationModule,
     AuthModule,
   ],
   controllers: [AppController],

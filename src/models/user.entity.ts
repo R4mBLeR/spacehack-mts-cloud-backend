@@ -12,6 +12,7 @@ import { AuthUtils } from '../utils/auth.utils';
 import { Exclude } from 'class-transformer';
 import { Role } from './role.entity';
 import { BaseEntityWithId } from './base.entity';
+import { Corporation } from './corporation.entity';
 
 @Entity({ schema: 'users', name: 'users' })
 export class User extends BaseEntityWithId {
@@ -37,7 +38,7 @@ export class User extends BaseEntityWithId {
   @Exclude()
   password: string;
 
-  @Column({ default: 0 })
+  @Column({ default: 0, type: 'money' })
   balance: number;
 
   @CreateDateColumn()
@@ -74,4 +75,7 @@ export class User extends BaseEntityWithId {
     inverseJoinColumn: { name: 'role_id', referencedColumnName: 'id' },
   })
   roles: Role[];
+
+  @ManyToMany(() => Corporation, (corp) => corp.members)
+  corporations: Corporation[];
 }
