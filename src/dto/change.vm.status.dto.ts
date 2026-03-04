@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { IsInt } from 'class-validator';
 
 export class ChangeVmStatusDto {
   @ApiProperty({
@@ -6,5 +7,6 @@ export class ChangeVmStatusDto {
     example: 1,
     required: true,
   })
+  @IsInt()
   id: number;
 }

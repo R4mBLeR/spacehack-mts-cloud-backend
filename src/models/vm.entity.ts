@@ -23,12 +23,4 @@ export class VirtualMachine extends BaseEntityWithId {
   @ManyToOne(() => User)
   @JoinColumn({ name: 'user_id' })
   user: User;
-
-  @Column({
-    name: 'status',
-    type: 'enum',
-    enum: VmStatus,
-    default: VmStatus.CREATING,
-  })
-  status: VmStatus;
 }
