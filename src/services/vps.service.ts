@@ -8,10 +8,14 @@ import { VirtualMachine, VmStatus } from '../models/vm.entity';
 import { CreateVmDto } from '../dto/create-vm.dto';
 import { UpdateVmDto } from '../dto/update-vm.dto';
 import { ChangeVmStatusDto } from '../dto/change.vm.status.dto';
+import { ProxmoxService } from '../api/proxmox.service';
 
 @Injectable()
 export class VpsService {
-  constructor(private vmRepository: VmRepository) {}
+  constructor(
+    private vmRepository: VmRepository,
+    private readonly proxmox: ProxmoxService,
+  ) {}
 
   async findAll(): Promise<VirtualMachine[]> {
     return this.vmRepository.findAllMachines();
@@ -37,7 +41,22 @@ export class VpsService {
     createVmDto: CreateVmDto,
     userId: number,
   ): Promise<VirtualMachine> {
-    return this.vmRepository.createVm(createVmDto, userId);
+    const vmid = await this.vmRepository.getNextVmid();
+
+    const upid = await this.proxmox.createVm({
+      node: 'pve1',
+      vmid,
+      name: createVmDto.name,
+      memory: createVmDto.configuration.ram,
+      cores: createVmDto.configuration.cpu,
+      scsi0: `local-lvm:${createVmDto.configuration.ssd}`,
+      net0: `virtio,bridge=vmbr0`,
+    });
+
+    await this.proxmox.waitForTask('pve1', upid);
+
+    // Передаём vmid в репозиторий для сохранения
+    return this.vmRepository.createVm(createVmDto, userId, vmid);
   }
 
   async stop(user_id: number, stopVmDto: ChangeVmStatusDto): Promise<boolean> {

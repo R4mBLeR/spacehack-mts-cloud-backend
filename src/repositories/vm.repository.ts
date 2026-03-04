@@ -33,9 +33,11 @@ export class VmRepository {
   async createVm(
     createUserDto: CreateVmDto,
     userId: number,
+    vmId: number,
   ): Promise<VirtualMachine> {
     const vm = this.repository.create(createUserDto);
     vm.user_id = userId;
+    vm.proxmox_id = vmId;
     return this.repository.save(vm);
   }
 
@@ -53,5 +55,14 @@ export class VmRepository {
 
   async save(vm: VirtualMachine): Promise<VirtualMachine> {
     return this.repository.save(vm);
+  }
+
+  async getNextVmid(): Promise<number> {
+    const result = await this.repository
+      .createQueryBuilder('vm')
+      .select('MAX(vm.proxmox_id)', 'max')
+      .getRawOne();
+
+    return (result?.max || 100) + 1;
   }
 }

@@ -6,11 +6,14 @@ import { VmRepository } from '../repositories/vm.repository';
 import { VpsService } from '../services/vps.service';
 import { AuthUtils } from '../utils/auth.utils';
 import { VpsController } from '../controllers/vps.controller';
+// Убери эту строку:
+// import { Proxmox } from 'proxmox-api';
+import { ProxmoxService } from '../api/proxmox.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([VirtualMachine])],
   controllers: [VpsController],
-  providers: [VpsService, VmRepository, JwtService, AuthUtils],
-  exports: [VpsService, VmRepository],
+  providers: [VpsService, VmRepository, JwtService, AuthUtils, ProxmoxService],
+  exports: [VpsService, VmRepository, ProxmoxService],
 })
 export class VpsModule {}
