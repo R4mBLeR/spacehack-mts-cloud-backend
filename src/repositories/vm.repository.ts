@@ -45,14 +45,6 @@ export class VmRepository {
     return this.repository.delete({ id });
   }
 
-  async changeVmStatus(
-    vm: VirtualMachine,
-    newStatus: VmStatus,
-  ): Promise<VirtualMachine> {
-    vm.status = newStatus;
-    return this.repository.save(vm);
-  }
-
   async save(vm: VirtualMachine): Promise<VirtualMachine> {
     return this.repository.save(vm);
   }

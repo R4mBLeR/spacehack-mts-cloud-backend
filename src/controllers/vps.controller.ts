@@ -29,7 +29,7 @@ export class VpsController {
   @ApiBearerAuth('access-token')
   @UseGuards(RolesGuard)
   @HasRoles(Roles.USER)
-  @Post()
+  @Post('create')
   async create(
     @CurrentUserId() userId: number,
     @Body() createVmDto: CreateVmDto,
@@ -53,17 +53,6 @@ export class VpsController {
     return this.vpsService.findOne(+id);
   }
 
-  @Patch('update_plan')
-  @ApiBearerAuth('access-token')
-  @UseGuards(RolesGuard)
-  @HasRoles(Roles.USER)
-  async updateVm(
-    @CurrentUserId() userId: number,
-    @Body() updateVmDto: UpdateVmDto,
-  ): Promise<VirtualMachine> {
-    return await this.vpsService.update(userId, updateVmDto);
-  }
-
   @Delete('delete')
   @ApiBearerAuth('access-token')
   @UseGuards(RolesGuard)
@@ -75,6 +64,17 @@ export class VpsController {
     return this.vpsService.delete(userId, deleteVmDto);
   }
 
+  @Post('start')
+  @ApiBearerAuth('access-token')
+  @UseGuards(RolesGuard)
+  @HasRoles(Roles.USER)
+  async startVm(
+    @CurrentUserId() userId: number,
+    @Body() startVmDto: ChangeVmStatusDto,
+  ): Promise<void> {
+    return this.vpsService.start(userId, startVmDto);
+  }
+
   @Post('stop')
   @ApiBearerAuth('access-token')
   @UseGuards(RolesGuard)
@@ -82,7 +82,37 @@ export class VpsController {
   async stopVm(
     @CurrentUserId() userId: number,
     @Body() stopVmDto: ChangeVmStatusDto,
-  ): Promise<boolean> {
+  ): Promise<void> {
     return this.vpsService.stop(userId, stopVmDto);
+  }
+
+  @Post('restart')
+  @ApiBearerAuth('access-token')
+  @UseGuards(RolesGuard)
+  @HasRoles(Roles.USER)
+  async restartVm(
+    @CurrentUserId() userId: number,
+    @Body() restartVmDto: ChangeVmStatusDto,
+  ): Promise<void> {
+    return this.vpsService.restart(userId, restartVmDto);
+  }
+
+  @Post('shutdown')
+  @ApiBearerAuth('access-token')
+  @UseGuards(RolesGuard)
+  @HasRoles(Roles.USER)
+  async shutdown(
+    @CurrentUserId() userId: number,
+    @Body() shutdownVmDto: ChangeVmStatusDto,
+  ): Promise<void> {
+    return this.vpsService.shutdownVm(userId, shutdownVmDto);
+  }
+
+  @Patch('update')
+  @ApiBearerAuth('access-token')
+  @UseGuards(RolesGuard)
+  @HasRoles(Roles.USER)
+  async updateVm(@Body() dto: UpdateVmDto): Promise<VirtualMachine> {
+    return this.vpsService.updateVm(dto);
   }
 }
