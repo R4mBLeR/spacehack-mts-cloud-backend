@@ -44,7 +44,7 @@ export class VpsService {
     const vmid = await this.vmRepository.getNextVmid();
 
     const upid = await this.proxmox.createVm({
-      node: 'pve1',
+      node: 'pve',
       vmid,
       name: createVmDto.name,
       memory: createVmDto.configuration.ram,

@@ -15,6 +15,8 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix('api');
 
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
   app.enableCors({
     origin: process.env.CORS_ORIGIN?.split(',') || '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
