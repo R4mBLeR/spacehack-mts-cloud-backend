@@ -59,6 +59,13 @@ export class UsersService {
     if (existingUsers.length > 0) {
       throw new ConflictException('CURRENT_EMAIL_OR_USERNAME_ALREADY_EXISTS');
     }
+    const validChars = '+1234567890';
+
+    for (let i = 0; i < createUserDto.phoneNumber.length; i++) {
+      if (!validChars.includes(createUserDto.phoneNumber[i])) {
+        throw new BadRequestException('PHONE_NUMBER_IS_INCORRECT');
+      }
+    }
 
     const defaultRole = await this.dataSource
       .getRepository(Role)
