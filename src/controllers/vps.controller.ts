@@ -49,8 +49,11 @@ export class VpsController {
   @UseGuards(RolesGuard)
   @HasRoles(Roles.USER)
   @Get(':id')
-  async findOne(@Param('id') id: number): Promise<VirtualMachine> {
-    return this.vpsService.findOne(+id);
+  async findOne(
+    @CurrentUserId() userId: number,
+    @Param('id') id: number,
+  ): Promise<VirtualMachine> {
+    return this.vpsService.findOne(+id, userId);
   }
 
   @Delete('delete')
@@ -112,7 +115,10 @@ export class VpsController {
   @ApiBearerAuth('access-token')
   @UseGuards(RolesGuard)
   @HasRoles(Roles.USER)
-  async updateVm(@Body() dto: UpdateVmDto): Promise<VirtualMachine> {
-    return this.vpsService.updateVm(dto);
+  async updateVm(
+    @CurrentUserId() userId: number,
+    @Body() dto: UpdateVmDto,
+  ): Promise<VirtualMachine> {
+    return this.vpsService.updateVm(userId, dto);
   }
 }

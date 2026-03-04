@@ -8,6 +8,7 @@ import { AuthModule } from './auth.module';
 import { VpsModule } from './vps.module';
 import { TicketsModule } from './tickets.module';
 import { CorporationModule } from './corporation.module';
+import { RbacModule } from './rbac.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { CorporationModule } from './corporation.module';
     TicketsModule,
     CorporationModule,
     AuthModule,
+    RbacModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -9,11 +9,12 @@ import { VpsController } from '../controllers/vps.controller';
 // Убери эту строку:
 // import { Proxmox } from 'proxmox-api';
 import { ProxmoxService } from '../api/proxmox.service';
+import { ConsoleGateway } from '../gateways/console.gateway';
 
 @Module({
   imports: [TypeOrmModule.forFeature([VirtualMachine])],
   controllers: [VpsController],
-  providers: [VpsService, VmRepository, JwtService, AuthUtils, ProxmoxService],
+  providers: [VpsService, VmRepository, JwtService, AuthUtils, ProxmoxService, ConsoleGateway],
   exports: [VpsService, VmRepository, ProxmoxService],
 })
 export class VpsModule {}

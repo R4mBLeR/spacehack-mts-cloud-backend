@@ -1,4 +1,5 @@
-import { IsString, MinLength, Allow } from 'class-validator';
+import { IsString, MinLength, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 import { VmConfiguration } from '../models/vm.configuration';
 
@@ -16,6 +17,7 @@ export class CreateVmDto {
     description: 'Configuration',
     example: { cpu: 1, ram: 16, ssd: 1 },
   })
-  @Allow()
+  @ValidateNested()
+  @Type(() => VmConfiguration)
   configuration: VmConfiguration;
 }

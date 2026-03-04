@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { VmRepository } from '../repositories/vm.repository';
-import { VirtualMachine, VmStatus } from '../models/vm.entity';
+import { VirtualMachine } from '../models/vm.entity';
 import { CreateVmDto } from '../dto/create-vm.dto';
 import { UpdateVmDto } from '../dto/update-vm.dto';
 import { ChangeVmStatusDto } from '../dto/change.vm.status.dto';
@@ -21,10 +21,13 @@ export class VpsService {
     return this.vmRepository.findAllMachines();
   }
 
-  async findOne(id: number): Promise<VirtualMachine> {
+  async findOne(id: number, userId?: number): Promise<VirtualMachine> {
     const vm = await this.vmRepository.findVmById(id);
     if (!vm) {
       throw new NotFoundException('VIRTUAL_MACHINE_NOT_FOUND');
+    }
+    if (userId !== undefined && vm.user_id !== userId) {
+      throw new NotFoundException('VIRTUAL_MACHINE_NO_ACCESS');
     }
     return vm;
   }
@@ -128,43 +131,25 @@ export class VpsService {
     if (vm.user_id !== user_id) {
       throw new NotFoundException('VIRTUAL_MACHINE_NO_ACCESS');
     }
+    await this.proxmox.deleteVm('pve', vm.proxmox_id);
     const result = await this.vmRepository.deleteVmById(deleteVmDto.id);
     if (result.affected === 0) {
       return false;
     }
-    await this.proxmox.deleteVm('pve', vm.proxmox_id);
-    await this.vmRepository.deleteVmById(deleteVmDto.id);
     return true;
   }
 
-  async update(id: number, updateVmDto: UpdateVmDto): Promise<VirtualMachine> {
-    const existingVm = await this.vmRepository.findVmById(id);
-    if (!existingVm) {
-      throw new NotFoundException('VIRTUAL_MACHINE_NOT_FOUND');
-    }
-
-    const changedFields = Object.keys(updateVmDto).filter(
-      (key) =>
-        updateVmDto[key] !== undefined && existingVm[key] !== updateVmDto[key],
-    );
-
-    if (!changedFields.length) {
-      throw new BadRequestException('NO_DATA_TO_UPDATE');
-    }
-
-    changedFields.forEach((key) => {
-      existingVm[key] = updateVmDto[key];
-    });
-
-    return this.vmRepository.save(existingVm);
-  }
-
-  // vps.service.ts
-  async updateVm(dto: UpdateVmDto): Promise<VirtualMachine> {
+  async updateVm(
+    userId: number,
+    dto: UpdateVmDto,
+  ): Promise<VirtualMachine> {
     const vm = await this.vmRepository.findVmById(dto.id);
 
     if (!vm) {
-      throw new NotFoundException('VM not found');
+      throw new NotFoundException('VIRTUAL_MACHINE_NOT_FOUND');
+    }
+    if (vm.user_id !== userId) {
+      throw new NotFoundException('VIRTUAL_MACHINE_NO_ACCESS');
     }
 
     const node = 'pve';
