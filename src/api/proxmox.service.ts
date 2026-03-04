@@ -1,21 +1,23 @@
 import ProxmoxApi from 'proxmox-api';
 import { ConfigService } from '@nestjs/config';
 import { Injectable } from '@nestjs/common';
+import https from 'https';
 
 interface CreateVmConfig {
   node: string;
   vmid: number;
   name: string;
-  memory?: number; // MB
+  memory?: number;
   cores?: number;
   sockets?: number;
-  cpu?: string; // "host", "kvm64", etc.
-  ostype?: string; // "l26" - Linux, "win10" - Windows
-  scsi0?: string; // "local-lvm:20" - диск 20GB
-  ide2?: string; // "local:iso/debian.iso,media=cdrom"
-  net0?: string; // "virtio,bridge=vmbr0"
-  boot?: string; // "order=ide2;scsi0"
-  [key: string]: any; // другие параметры Proxmox API
+  cpu?: string;
+  ostype?: string;
+  scsi0?: string;
+  ide2?: string;
+  net0?: string;
+  boot?: string;
+
+  [key: string]: any;
 }
 
 @Injectable()
@@ -23,11 +25,15 @@ export class ProxmoxService {
   private client: any;
 
   constructor() {
+    const agent = new https.Agent({
+      rejectUnauthorized: false,
+    });
+
     this.client = ProxmoxApi({
       host: process.env.PROXMOX_HOST!,
       port: parseInt(process.env.PROXMOX_PORT!, 10),
       username: `${process.env.PROXMOX_USER!}!${process.env.PROXMOX_TOKEN_NAME!}`,
-      password: process.env.PROXMOX_TOKEN_SECRET!,
+      password: process.env.PROXMOX_PASSWORD!,
     });
 
     console.log('🔥🔥🔥 PROXMOX CLIENT CREATED 🔥🔥🔥');
@@ -35,19 +41,15 @@ export class ProxmoxService {
 
   /**
    * Создаёт виртуальную машину
-   * Возвращает Task ID (UPID) для отслеживания
    */
   async createVm(config: CreateVmConfig): Promise<string> {
     const { node, ...vmConfig } = config;
 
     try {
-      console.log(this.client.client);
       const result = await this.client.nodes.$(node).qemu.$post(vmConfig);
-
-      console.log(result);
       const taskId = result.data;
-      console.log(`✅ VM creation started. Task ID: ${taskId}`);
 
+      console.log(`✅ VM creation started. Task ID: ${taskId}`);
       return taskId;
     } catch (error: any) {
       console.error('❌ Failed to create VM:', error.message);
@@ -67,6 +69,7 @@ export class ProxmoxService {
         .$(node)
         .tasks.$(taskId)
         .status.$get();
+
       const state = status.data.status;
 
       if (state === 'stopped') {
@@ -83,9 +86,6 @@ export class ProxmoxService {
     }
   }
 
-  /**
-   * Создаёт ВМ и ждёт завершения
-   */
   async createVmAndWait(config: CreateVmConfig): Promise<void> {
     const taskId = await this.createVm(config);
     await this.waitForTask(config.node, taskId);
