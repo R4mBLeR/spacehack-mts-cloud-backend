@@ -5,7 +5,7 @@ import { VmConfiguration } from '../models/vm.configuration';
 export class CreateVmDto {
   @ApiProperty({
     description: 'Name for VM',
-    example: 'best VM',
+    example: 'best-VM',
     minLength: 3,
   })
   @IsString()
@@ -14,7 +14,7 @@ export class CreateVmDto {
 
   @ApiProperty({
     description: 'Configuration',
-    example: { cpu: 1, ram: 1, ssd: 1 },
+    example: { cpu: 1, ram: 16, ssd: 1 },
   })
   @Allow()
   configuration: VmConfiguration;
