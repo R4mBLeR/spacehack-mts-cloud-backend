@@ -63,8 +63,12 @@ export class CorporationController {
   @HasRoles(Roles.CORPORATION_ADMIN)
   @Post(':id/members/:userId')
   @ApiOperation({ summary: 'Add member to corporation' })
-  addMember(@Param('id') id: number, @CurrentUserId() userId) {
-    return this.corporationService.addMember(id, userId);
+  addMember(
+    @Param('id') corpId: number,
+    @Param('userId') userId: number,
+    @CurrentUserId() currentUserId: number,
+  ) {
+    return this.corporationService.addMember(corpId, userId, currentUserId);
   }
 
   @ApiBearerAuth('access-token')
@@ -73,10 +77,10 @@ export class CorporationController {
   @Delete(':id/members/:userId')
   @ApiOperation({ summary: 'Remove member from corporation' })
   removeMember(
-    @Param('id') id: number,
-    @CurrentUserId() adminId,
-    userId: number,
+    @Param('id') corpId: number,
+    @Param('userId') userId: number,
+    @CurrentUserId() adminId: number,
   ) {
-    return this.corporationService.removeMember(id, adminId, userId);
+    return this.corporationService.removeMember(corpId, adminId, userId);
   }
 }
