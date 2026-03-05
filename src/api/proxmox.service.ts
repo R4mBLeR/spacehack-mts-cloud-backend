@@ -24,6 +24,8 @@ interface CreateVmConfig {
   cipassword?: string;
   sshkeys?: string;
   ipconfig0?: string;
+  /** Bridge / VNet для net0, напр. 'vnet10'. По умолчанию из env PROXMOX_DEFAULT_BRIDGE */
+  bridge?: string;
 }
 
 @Injectable()
@@ -61,8 +63,12 @@ export class ProxmoxService {
       throw new Error('Cloned VM has no disk');
     }
 
+    const bridge = config.bridge || process.env.PROXMOX_DEFAULT_BRIDGE || 'vnet10';
+
     const updates: any = {
       boot: `order=${diskKey}`,
+      // Привязываем сетевой интерфейс к SDN VNet (VXLAN)
+      net0: `virtio,bridge=${bridge}`,
     };
 
     if (config.memory) updates.memory = config.memory.toString();
@@ -240,7 +246,128 @@ export class ProxmoxService {
     }
   }
 
-  // ── Console / Terminal ──────────────────────────────────
+  // ── Monitoring / RRD ────────────────────────────────────
+
+  /**
+   * Получить RRD-данные (time-series) для VM.
+   * @param timeframe — 'hour' | 'day' | 'week' | 'month' | 'year'
+   * @param cf — 'AVERAGE' | 'MAX'
+   */
+  async getVmRrdData(
+    node: string,
+    vmid: number,
+    timeframe: string = 'hour',
+    cf: string = 'AVERAGE',
+  ): Promise<any[]> {
+    const { data } = await this.client.get(
+      `/nodes/${node}/qemu/${vmid}/rrddata`,
+      { params: { timeframe, cf } },
+    );
+    return data.data;
+  }
+
+  // ── Node VM list ────────────────────────────────────────
+
+  /**
+   * Получить список всех VM на ноде (из Proxmox, не из БД).
+   */
+  async getNodeVmList(node: string): Promise<any[]> {
+    const { data } = await this.client.get(`/nodes/${node}/qemu`);
+    return data.data;
+  }
+
+  // ── Snapshots ───────────────────────────────────────────
+
+  /**
+   * Получить список снапшотов VM.
+   */
+  async listSnapshots(node: string, vmid: number): Promise<any[]> {
+    const { data } = await this.client.get(
+      `/nodes/${node}/qemu/${vmid}/snapshot`,
+    );
+    return data.data;
+  }
+
+  /**
+   * Создать снапшот VM.
+   * @param snapname — имя снапшота
+   * @param description — описание (опц.)
+   * @param vmstate — включить ли RAM-состояние (опц., по умолчанию false)
+   */
+  async createSnapshot(
+    node: string,
+    vmid: number,
+    snapname: string,
+    description?: string,
+    vmstate = false,
+  ): Promise<string> {
+    const body: Record<string, string> = { snapname };
+    if (description) body.description = description;
+    if (vmstate) body.vmstate = '1';
+    const { data } = await this.client.post(
+      `/nodes/${node}/qemu/${vmid}/snapshot`,
+      new URLSearchParams(body).toString(),
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
+    );
+    return data.data; // UPID task id
+  }
+
+  /**
+   * Получить конфигурацию снапшота.
+   */
+  async getSnapshotConfig(
+    node: string,
+    vmid: number,
+    snapname: string,
+  ): Promise<any> {
+    const { data } = await this.client.get(
+      `/nodes/${node}/qemu/${vmid}/snapshot/${encodeURIComponent(snapname)}/config`,
+    );
+    return data.data;
+  }
+
+  /**
+   * Откатить VM к снапшоту.
+   */
+  async rollbackSnapshot(
+    node: string,
+    vmid: number,
+    snapname: string,
+  ): Promise<string> {
+    const { data } = await this.client.post(
+      `/nodes/${node}/qemu/${vmid}/snapshot/${encodeURIComponent(snapname)}/rollback`,
+      '',
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
+    );
+    return data.data; // UPID task id
+  }
+
+  /**
+   * Удалить снапшот.
+   */
+  async deleteSnapshot(
+    node: string,
+    vmid: number,
+    snapname: string,
+  ): Promise<string> {
+    const { data } = await this.client.delete(
+      `/nodes/${node}/qemu/${vmid}/snapshot/${encodeURIComponent(snapname)}`,
+    );
+    return data.data; // UPID task id
+  }
+
+  // ── Cluster resources ───────────────────────────────────
+
+  /**
+   * Получить все ресурсы кластера одним запросом.
+   * @param type — опциональный фильтр: 'vm' | 'storage' | 'node' | 'sdn'
+   */
+  async getClusterResources(type?: string): Promise<any[]> {
+    const params: Record<string, string> = {};
+    if (type) params.type = type;
+    const { data } = await this.client.get('/cluster/resources', { params });
+    return data.data;
+  }
 
   /**
    * Получить VNC ticket для VM (QEMU).
@@ -453,5 +580,261 @@ export class ProxmoxService {
       new URLSearchParams(body).toString(),
       { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
     );
+  }
+
+  // ─── LXC Lifecycle ─────────────────────────────────────────
+
+  /** Список LXC-контейнеров на ноде. */
+  async getLxcList(node: string): Promise<any[]> {
+    const { data } = await this.client.get(`/nodes/${node}/lxc`);
+    return data.data;
+  }
+
+  /** Текущий статус LXC. */
+  async getLxcStatus(node: string, vmid: number): Promise<any> {
+    const { data } = await this.client.get(
+      `/nodes/${node}/lxc/${vmid}/status/current`,
+    );
+    return data.data;
+  }
+
+  /** Конфигурация LXC. */
+  async getLxcConfig(node: string, vmid: number): Promise<any> {
+    const { data } = await this.client.get(`/nodes/${node}/lxc/${vmid}/config`);
+    return data.data;
+  }
+
+  /**
+   * Создать LXC-контейнер.
+   * ostemplate — напр. "local:vztmpl/debian-12-standard_12.2-1_amd64.tar.zst"
+   */
+  async createLxc(node: string, params: {
+    vmid: number;
+    hostname: string;
+    ostemplate: string;
+    memory?: number;
+    cores?: number;
+    rootfs?: string;
+    password?: string;
+    sshPublicKeys?: string;
+    net0?: string;
+    unprivileged?: boolean;
+    start?: boolean;
+  }): Promise<string> {
+    const body: Record<string, string> = {
+      vmid: params.vmid.toString(),
+      hostname: params.hostname,
+      ostemplate: params.ostemplate,
+    };
+    if (params.memory) body.memory = params.memory.toString();
+    if (params.cores) body.cores = params.cores.toString();
+    if (params.rootfs) body.rootfs = params.rootfs;
+    if (params.password) body.password = params.password;
+    if (params.sshPublicKeys) body['ssh-public-keys'] = params.sshPublicKeys;
+    if (params.net0) body.net0 = params.net0;
+    if (params.unprivileged !== undefined) body.unprivileged = params.unprivileged ? '1' : '0';
+    if (params.start !== undefined) body.start = params.start ? '1' : '0';
+    const { data } = await this.client.post(
+      `/nodes/${node}/lxc`,
+      new URLSearchParams(body).toString(),
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
+    );
+    return data.data; // UPID
+  }
+
+  /** Обновить конфигурацию LXC. */
+  async updateLxcConfig(node: string, vmid: number, params: {
+    memory?: number;
+    cores?: number;
+    hostname?: string;
+    description?: string;
+  }): Promise<void> {
+    const body: Record<string, string> = {};
+    if (params.memory) body.memory = params.memory.toString();
+    if (params.cores) body.cores = params.cores.toString();
+    if (params.hostname) body.hostname = params.hostname;
+    if (params.description) body.description = params.description;
+    await this.client.put(
+      `/nodes/${node}/lxc/${vmid}/config`,
+      new URLSearchParams(body).toString(),
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
+    );
+  }
+
+  /** Запустить LXC. */
+  async startLxc(node: string, vmid: number): Promise<string> {
+    const { data } = await this.client.post(
+      `/nodes/${node}/lxc/${vmid}/status/start`, '',
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
+    );
+    return data.data;
+  }
+
+  /** Остановить LXC (hard stop). */
+  async stopLxc(node: string, vmid: number): Promise<string> {
+    const { data } = await this.client.post(
+      `/nodes/${node}/lxc/${vmid}/status/stop`, '',
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
+    );
+    return data.data;
+  }
+
+  /** Выключить LXC (graceful shutdown). */
+  async shutdownLxc(node: string, vmid: number): Promise<string> {
+    const { data } = await this.client.post(
+      `/nodes/${node}/lxc/${vmid}/status/shutdown`, '',
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
+    );
+    return data.data;
+  }
+
+  /** Перезагрузить LXC. */
+  async rebootLxc(node: string, vmid: number): Promise<string> {
+    const { data } = await this.client.post(
+      `/nodes/${node}/lxc/${vmid}/status/reboot`, '',
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
+    );
+    return data.data;
+  }
+
+  /** Удалить LXC-контейнер. */
+  async deleteLxc(node: string, vmid: number): Promise<string> {
+    const { data } = await this.client.delete(`/nodes/${node}/lxc/${vmid}`);
+    return data.data;
+  }
+
+  /** RRD-данные LXC. */
+  async getLxcRrdData(
+    node: string,
+    vmid: number,
+    timeframe = 'hour',
+    cf = 'AVERAGE',
+  ): Promise<any[]> {
+    const { data } = await this.client.get(
+      `/nodes/${node}/lxc/${vmid}/rrddata`,
+      { params: { timeframe, cf } },
+    );
+    return data.data;
+  }
+
+  // ─── Storage ────────────────────────────────────────────────
+
+  /** Список хранилищ на ноде. */
+  async getNodeStorages(node: string): Promise<any[]> {
+    const { data } = await this.client.get(`/nodes/${node}/storage`);
+    return data.data;
+  }
+
+  /**
+   * Содержимое хранилища.
+   * @param contentType — 'iso' | 'vztmpl' | 'backup' | 'images' | 'rootdir'
+   */
+  async getStorageContent(
+    node: string,
+    storage: string,
+    contentType?: string,
+  ): Promise<any[]> {
+    const params: Record<string, string> = {};
+    if (contentType) params.content = contentType;
+    const { data } = await this.client.get(
+      `/nodes/${node}/storage/${encodeURIComponent(storage)}/content`,
+      { params },
+    );
+    return data.data;
+  }
+
+  /** Глобальный список storage (из конфигурации кластера). */
+  async getGlobalStorages(): Promise<any[]> {
+    const { data } = await this.client.get('/storage');
+    return data.data;
+  }
+
+  // ─── Pools ──────────────────────────────────────────────────
+
+  /** Список всех пулов. */
+  async listPools(): Promise<any[]> {
+    const { data } = await this.client.get('/pools');
+    return data.data;
+  }
+
+  /** Детали пула (члены: VM + storage). */
+  async getPool(poolid: string): Promise<any> {
+    const { data } = await this.client.get(`/pools/${encodeURIComponent(poolid)}`);
+    return data.data;
+  }
+
+  /** Создать пул. */
+  async createPool(poolid: string, comment?: string): Promise<void> {
+    const body: Record<string, string> = { poolid };
+    if (comment) body.comment = comment;
+    await this.client.post(
+      '/pools',
+      new URLSearchParams(body).toString(),
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
+    );
+  }
+
+  /** Обновить пул — добавить/удалить VM или Storage. */
+  async updatePool(poolid: string, params: {
+    vms?: string;
+    storage?: string;
+    comment?: string;
+    delete?: boolean;
+  }): Promise<void> {
+    const body: Record<string, string> = {};
+    if (params.vms) body.vms = params.vms;
+    if (params.storage) body.storage = params.storage;
+    if (params.comment) body.comment = params.comment;
+    if (params.delete) body.delete = '1';
+    await this.client.put(
+      `/pools/${encodeURIComponent(poolid)}`,
+      new URLSearchParams(body).toString(),
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
+    );
+  }
+
+  /** Удалить пул. */
+  async deletePool(poolid: string): Promise<void> {
+    await this.client.delete(`/pools/${encodeURIComponent(poolid)}`);
+  }
+
+  // ─── SDN (Software-Defined Networking) ──────────────────────
+
+  /** Список SDN-зон (VXLAN, VLAN, Simple и т.д.) */
+  async getSdnZones(): Promise<any[]> {
+    const { data } = await this.client.get('/cluster/sdn/zones');
+    return data.data;
+  }
+
+  /** Детали SDN-зоны. */
+  async getSdnZone(zone: string): Promise<any> {
+    const { data } = await this.client.get(`/cluster/sdn/zones/${encodeURIComponent(zone)}`);
+    return data.data;
+  }
+
+  /** Список VNet'ов (виртуальных сетей). */
+  async getSdnVnets(): Promise<any[]> {
+    const { data } = await this.client.get('/cluster/sdn/vnets');
+    return data.data;
+  }
+
+  /** Детали VNet. */
+  async getSdnVnet(vnet: string): Promise<any> {
+    const { data } = await this.client.get(`/cluster/sdn/vnets/${encodeURIComponent(vnet)}`);
+    return data.data;
+  }
+
+  /** Список подсетей VNet. */
+  async getSdnSubnets(vnet: string): Promise<any[]> {
+    const { data } = await this.client.get(`/cluster/sdn/vnets/${encodeURIComponent(vnet)}/subnets`);
+    return data.data;
+  }
+
+  /** Применить изменения SDN (аналог кнопки "Apply" в GUI). */
+  async applySdn(): Promise<string> {
+    const { data } = await this.client.put('/cluster/sdn', '', {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    });
+    return data.data;
   }
 }

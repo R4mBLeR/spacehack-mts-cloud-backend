@@ -9,6 +9,10 @@ import { VpsModule } from './vps.module';
 import { TicketsModule } from './tickets.module';
 import { CorporationModule } from './corporation.module';
 import { RbacModule } from './rbac.module';
+import { LxcModule } from './lxc.module';
+import { StorageModule } from './storage.module';
+import { PoolsModule } from './pools.module';
+import { SdnModule } from './sdn.module';
 
 @Module({
   imports: [
@@ -20,6 +24,10 @@ import { RbacModule } from './rbac.module';
     CorporationModule,
     AuthModule,
     RbacModule,
+    LxcModule,
+    StorageModule,
+    PoolsModule,
+    SdnModule,
   ],
   controllers: [AppController],
   providers: [AppService],

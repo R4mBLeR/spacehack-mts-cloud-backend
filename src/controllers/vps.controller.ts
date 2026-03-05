@@ -4,6 +4,7 @@ import {
   Post,
   Body,
   Param,
+  Query,
   UseInterceptors,
   ClassSerializerInterceptor,
   UseGuards,
@@ -13,23 +14,50 @@ import {
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { HasRoles } from '../auth/decorators/role.decorator';
 import { Roles } from '../auth/roles';
-import { ApiBearerAuth } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { CurrentUserId } from '../auth/decorators/current.user.decorator.dto';
 import { VpsService } from '../services/vps.service';
 import { CreateVmDto } from '../dto/create-vm.dto';
 import { VirtualMachine } from '../models/vm.entity';
 import { UpdateVmDto } from '../dto/update-vm.dto';
 import { ChangeVmStatusDto } from '../dto/change.vm.status.dto';
+import { CreateSnapshotDto } from '../dto/create-snapshot.dto';
+import { SnapshotActionDto } from '../dto/snapshot-action.dto';
 
+@ApiTags('VPS')
 @Controller('vps')
 @UseInterceptors(ClassSerializerInterceptor)
 export class VpsController {
   constructor(private readonly vpsService: VpsService) {}
 
+  // ─── Admin routes (BEFORE :id to avoid route conflicts) ───
+
+  @Get('admin/proxmox-vms')
+  @ApiBearerAuth('access-token')
+  @UseGuards(RolesGuard)
+  @HasRoles(Roles.ADMIN)
+  @ApiOperation({ summary: 'Все VM на ноде из Proxmox (для синхронизации)' })
+  async getProxmoxVmList() {
+    return this.vpsService.getProxmoxVmList();
+  }
+
+  @Get('admin/cluster-resources')
+  @ApiBearerAuth('access-token')
+  @UseGuards(RolesGuard)
+  @HasRoles(Roles.ADMIN)
+  @ApiOperation({ summary: 'Все ресурсы кластера Proxmox' })
+  @ApiQuery({ name: 'type', required: false, enum: ['vm', 'storage', 'node', 'sdn'] })
+  async getClusterResources(@Query('type') type?: string) {
+    return this.vpsService.getClusterResources(type);
+  }
+
+  // ─── CRUD ─────────────────────────────────────────────────
+
+  @Post('create')
   @ApiBearerAuth('access-token')
   @UseGuards(RolesGuard)
   @HasRoles(Roles.USER)
-  @Post('create')
+  @ApiOperation({ summary: 'Создать VM (клон шаблона + cloud-init)' })
   async create(
     @CurrentUserId() userId: number,
     @Body() createVmDto: CreateVmDto,
@@ -37,29 +65,32 @@ export class VpsController {
     return this.vpsService.create(createVmDto, userId);
   }
 
+  @Get()
   @ApiBearerAuth('access-token')
   @UseGuards(RolesGuard)
   @HasRoles(Roles.ADMIN)
-  @Get()
+  @ApiOperation({ summary: 'Список всех VM (admin)' })
   async findAll(): Promise<VirtualMachine[]> {
     return this.vpsService.findAll();
   }
 
+  @Patch('update')
   @ApiBearerAuth('access-token')
   @UseGuards(RolesGuard)
   @HasRoles(Roles.USER)
-  @Get(':id')
-  async findOne(
+  @ApiOperation({ summary: 'Обновить конфигурацию VM (CPU, RAM, Disk)' })
+  async updateVm(
     @CurrentUserId() userId: number,
-    @Param('id') id: number,
+    @Body() dto: UpdateVmDto,
   ): Promise<VirtualMachine> {
-    return this.vpsService.findOne(+id, userId);
+    return this.vpsService.updateVm(userId, dto);
   }
 
   @Delete('delete')
   @ApiBearerAuth('access-token')
   @UseGuards(RolesGuard)
   @HasRoles(Roles.USER)
+  @ApiOperation({ summary: 'Удалить VM' })
   async deleteVm(
     @CurrentUserId() userId: number,
     @Body() deleteVmDto: ChangeVmStatusDto,
@@ -67,10 +98,13 @@ export class VpsController {
     return this.vpsService.delete(userId, deleteVmDto);
   }
 
+  // ─── Power management ─────────────────────────────────
+
   @Post('start')
   @ApiBearerAuth('access-token')
   @UseGuards(RolesGuard)
   @HasRoles(Roles.USER)
+  @ApiOperation({ summary: 'Запустить VM' })
   async startVm(
     @CurrentUserId() userId: number,
     @Body() startVmDto: ChangeVmStatusDto,
@@ -82,6 +116,7 @@ export class VpsController {
   @ApiBearerAuth('access-token')
   @UseGuards(RolesGuard)
   @HasRoles(Roles.USER)
+  @ApiOperation({ summary: 'Остановить VM (hard stop)' })
   async stopVm(
     @CurrentUserId() userId: number,
     @Body() stopVmDto: ChangeVmStatusDto,
@@ -93,6 +128,7 @@ export class VpsController {
   @ApiBearerAuth('access-token')
   @UseGuards(RolesGuard)
   @HasRoles(Roles.USER)
+  @ApiOperation({ summary: 'Перезагрузить VM (reboot)' })
   async restartVm(
     @CurrentUserId() userId: number,
     @Body() restartVmDto: ChangeVmStatusDto,
@@ -104,6 +140,7 @@ export class VpsController {
   @ApiBearerAuth('access-token')
   @UseGuards(RolesGuard)
   @HasRoles(Roles.USER)
+  @ApiOperation({ summary: 'Выключить VM (graceful shutdown)' })
   async shutdown(
     @CurrentUserId() userId: number,
     @Body() shutdownVmDto: ChangeVmStatusDto,
@@ -111,14 +148,83 @@ export class VpsController {
     return this.vpsService.shutdownVm(userId, shutdownVmDto);
   }
 
-  @Patch('update')
+  // ─── Snapshots (BEFORE :id routes) ───────────────────
+
+  @Post('snapshots/create')
   @ApiBearerAuth('access-token')
   @UseGuards(RolesGuard)
   @HasRoles(Roles.USER)
-  async updateVm(
+  @ApiOperation({ summary: 'Создать снапшот VM' })
+  async createSnapshot(
     @CurrentUserId() userId: number,
-    @Body() dto: UpdateVmDto,
+    @Body() dto: CreateSnapshotDto,
+  ) {
+    return this.vpsService.createSnapshot(dto, userId);
+  }
+
+  @Post('snapshots/rollback')
+  @ApiBearerAuth('access-token')
+  @UseGuards(RolesGuard)
+  @HasRoles(Roles.USER)
+  @ApiOperation({ summary: 'Откатить VM к снапшоту' })
+  async rollbackSnapshot(
+    @CurrentUserId() userId: number,
+    @Body() dto: SnapshotActionDto,
+  ) {
+    return this.vpsService.rollbackSnapshot(dto, userId);
+  }
+
+  @Delete('snapshots/delete')
+  @ApiBearerAuth('access-token')
+  @UseGuards(RolesGuard)
+  @HasRoles(Roles.USER)
+  @ApiOperation({ summary: 'Удалить снапшот VM' })
+  async deleteSnapshot(
+    @CurrentUserId() userId: number,
+    @Body() dto: SnapshotActionDto,
+  ) {
+    return this.vpsService.deleteSnapshot(dto, userId);
+  }
+
+  // ─── Parametric :id routes (LAST) ────────────────────
+
+  @Get(':id')
+  @ApiBearerAuth('access-token')
+  @UseGuards(RolesGuard)
+  @HasRoles(Roles.USER)
+  @ApiOperation({ summary: 'Получить VM по ID' })
+  async findOne(
+    @CurrentUserId() userId: number,
+    @Param('id') id: number,
   ): Promise<VirtualMachine> {
-    return this.vpsService.updateVm(userId, dto);
+    return this.vpsService.findOne(+id, userId);
+  }
+
+  @Get(':id/monitoring')
+  @ApiBearerAuth('access-token')
+  @UseGuards(RolesGuard)
+  @HasRoles(Roles.USER)
+  @ApiOperation({ summary: 'RRD-данные VM (CPU, RAM, NET, Disk)' })
+  @ApiQuery({ name: 'timeframe', required: false, enum: ['hour', 'day', 'week', 'month', 'year'] })
+  @ApiQuery({ name: 'cf', required: false, enum: ['AVERAGE', 'MAX'] })
+  async getVmMonitoring(
+    @CurrentUserId() userId: number,
+    @Param('id') id: number,
+    @Query('timeframe') timeframe?: string,
+    @Query('cf') cf?: string,
+  ) {
+    return this.vpsService.getVmMonitoring(+id, userId, timeframe, cf);
+  }
+
+  @Get(':id/snapshots')
+  @ApiBearerAuth('access-token')
+  @UseGuards(RolesGuard)
+  @HasRoles(Roles.USER)
+  @ApiOperation({ summary: 'Список снапшотов VM' })
+  async listSnapshots(
+    @CurrentUserId() userId: number,
+    @Param('id') id: number,
+  ) {
+    return this.vpsService.listSnapshots(+id, userId);
   }
 }

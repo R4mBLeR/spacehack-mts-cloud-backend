@@ -8,6 +8,8 @@ import { VirtualMachine } from '../models/vm.entity';
 import { CreateVmDto } from '../dto/create-vm.dto';
 import { UpdateVmDto } from '../dto/update-vm.dto';
 import { ChangeVmStatusDto } from '../dto/change.vm.status.dto';
+import { CreateSnapshotDto } from '../dto/create-snapshot.dto';
+import { SnapshotActionDto } from '../dto/snapshot-action.dto';
 import { ProxmoxService } from '../api/proxmox.service';
 
 @Injectable()
@@ -161,5 +163,76 @@ export class VpsService {
     });
 
     return vm;
+  }
+
+  // ── Monitoring ──────────────────────────────────────────
+
+  /**
+   * RRD-данные VM (CPU, RAM, NET, Disk) — time-series.
+   */
+  async getVmMonitoring(
+    vmId: number,
+    userId: number,
+    timeframe: string = 'hour',
+    cf: string = 'AVERAGE',
+  ): Promise<any[]> {
+    const vm = await this.findOne(vmId, userId);
+    return this.proxmox.getVmRrdData('pve', vm.proxmox_id, timeframe, cf);
+  }
+
+  // ── Node VM list (admin) ────────────────────────────────
+
+  /**
+   * Все VM на ноде напрямую из Proxmox (для синхронизации).
+   */
+  async getProxmoxVmList(): Promise<any[]> {
+    return this.proxmox.getNodeVmList('pve');
+  }
+
+  // ── Snapshots ───────────────────────────────────────────
+
+  async listSnapshots(vmId: number, userId: number): Promise<any[]> {
+    const vm = await this.findOne(vmId, userId);
+    const snapshots = await this.proxmox.listSnapshots('pve', vm.proxmox_id);
+    // Фильтруем служебный "current" снапшот
+    return snapshots.filter((s: any) => s.name !== 'current');
+  }
+
+  async createSnapshot(dto: CreateSnapshotDto, userId: number): Promise<{ taskId: string }> {
+    const vm = await this.findOne(dto.vmId, userId);
+    const taskId = await this.proxmox.createSnapshot(
+      'pve',
+      vm.proxmox_id,
+      dto.snapname,
+      dto.description,
+      dto.vmstate,
+    );
+    return { taskId };
+  }
+
+  async rollbackSnapshot(dto: SnapshotActionDto, userId: number): Promise<{ taskId: string }> {
+    const vm = await this.findOne(dto.vmId, userId);
+    const taskId = await this.proxmox.rollbackSnapshot(
+      'pve',
+      vm.proxmox_id,
+      dto.snapname,
+    );
+    return { taskId };
+  }
+
+  async deleteSnapshot(dto: SnapshotActionDto, userId: number): Promise<{ taskId: string }> {
+    const vm = await this.findOne(dto.vmId, userId);
+    const taskId = await this.proxmox.deleteSnapshot(
+      'pve',
+      vm.proxmox_id,
+      dto.snapname,
+    );
+    return { taskId };
+  }
+
+  // ── Cluster resources (admin) ───────────────────────────
+
+  async getClusterResources(type?: string): Promise<any[]> {
+    return this.proxmox.getClusterResources(type);
   }
 }

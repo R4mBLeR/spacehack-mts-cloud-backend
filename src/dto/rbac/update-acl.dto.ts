@@ -1,47 +1,33 @@
 import { IsString, IsNotEmpty, IsOptional, IsBoolean } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UpdateAclDto {
-  /**
-   * Путь ресурса Proxmox.
-   * @example "/vms/100"
-   */
+  @ApiProperty({ description: 'Путь ресурса Proxmox', example: '/vms/100' })
   @IsString()
   @IsNotEmpty()
   path: string;
 
-  /**
-   * Роль(и) через запятую.
-   * @example "TenantAdmin"
-   */
+  @ApiProperty({ description: 'Роль(и) через запятую', example: 'TenantAdmin' })
   @IsString()
   @IsNotEmpty()
   roles: string;
 
-  /**
-   * Пользователь(и) "user@realm" через запятую.
-   * @example "john@pve"
-   */
+  @ApiPropertyOptional({ description: 'Пользователь(и) "user@realm" через запятую', example: 'john@pve' })
   @IsOptional()
   @IsString()
   users?: string;
 
-  /**
-   * Группа(ы) через запятую.
-   */
+  @ApiPropertyOptional({ description: 'Группа(ы) через запятую' })
   @IsOptional()
   @IsString()
   groups?: string;
 
-  /**
-   * Распространять ли права вниз по дереву ресурсов.
-   */
+  @ApiPropertyOptional({ description: 'Распространять ли права вниз по дереву ресурсов', default: true })
   @IsOptional()
   @IsBoolean()
   propagate?: boolean;
 
-  /**
-   * Удалить указанную ACL-запись вместо добавления.
-   */
+  @ApiPropertyOptional({ description: 'Удалить указанную ACL-запись вместо добавления', default: false })
   @IsOptional()
   @IsBoolean()
   delete?: boolean;

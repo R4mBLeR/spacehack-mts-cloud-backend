@@ -7,7 +7,7 @@ const exampleConf = new VmConfiguration(2, 8, 16);
 
 export class UpdateVmDto {
   @ApiProperty({
-    description: 'New name for VM',
+    description: 'ID виртуальной машины (внутренний)',
     example: 1,
     required: true,
   })

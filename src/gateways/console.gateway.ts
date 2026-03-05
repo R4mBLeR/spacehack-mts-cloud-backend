@@ -8,6 +8,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import WebSocket from 'ws';
 import https from 'https';
 import { ProxmoxService } from '../api/proxmox.service';
@@ -32,12 +33,38 @@ export class ConsoleGateway implements OnGatewayDisconnect {
   constructor(
     private readonly proxmox: ProxmoxService,
     private readonly vmRepository: VmRepository,
+    private readonly jwtService: JwtService,
   ) {}
+
+  /**
+   * Извлечь и проверить JWT из socket.io handshake.
+   * Поддерживает:
+   *   - socket.handshake.auth.token
+   *   - socket.handshake.headers.authorization  (Bearer ...)
+   * Возвращает userId или null.
+   */
+  private extractUserId(client: Socket): number | null {
+    try {
+      const token =
+        client.handshake.auth?.token ||
+        client.handshake.headers?.authorization?.replace('Bearer ', '');
+
+      if (!token) return null;
+
+      const payload = this.jwtService.verify(token, {
+        secret: process.env.JWT_SECRET || 'your-secret-key',
+      });
+      return payload.id ?? null;
+    } catch {
+      return null;
+    }
+  }
 
   /**
    * Клиент подключается и отправляет:
    *   { vmId: number, type: 'qemu' | 'lxc' }
    *
+   * Требуется JWT-токен в handshake.auth.token или в Authorization header.
    * В ответ получает 'console:ready' или 'console:error'.
    */
   @SubscribeMessage('console:connect')
@@ -45,6 +72,13 @@ export class ConsoleGateway implements OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: { vmId: number; type?: 'qemu' | 'lxc' },
   ): Promise<void> {
+    // ── Auth ──────────────────────────────────────────────
+    const userId = this.extractUserId(client);
+    if (!userId) {
+      client.emit('console:error', { message: 'AUTH_REQUIRED' });
+      return;
+    }
+
     const type = payload.type || 'qemu';
     const node = 'pve';
 
@@ -53,6 +87,12 @@ export class ConsoleGateway implements OnGatewayDisconnect {
       const vm = await this.vmRepository.findVmById(payload.vmId);
       if (!vm) {
         client.emit('console:error', { message: 'VM_NOT_FOUND' });
+        return;
+      }
+
+      // ── Ownership check ────────────────────────────────
+      if (vm.user_id !== userId) {
+        client.emit('console:error', { message: 'VM_NO_ACCESS' });
         return;
       }
 
