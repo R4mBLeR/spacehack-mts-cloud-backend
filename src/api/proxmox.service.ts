@@ -1,6 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 import https from 'https';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { firstValueFrom } from 'rxjs';
 
 enum SystemTemplates {
   ARCH = 900,
@@ -29,6 +30,7 @@ interface CreateVmConfig {
 @Injectable()
 export class ProxmoxService {
   private client: AxiosInstance;
+  private readonly logger = new Logger(ProxmoxService.name); // Добавлен logger
 
   constructor() {
     const host = process.env.PROXMOX_HOST!;
@@ -202,7 +204,7 @@ export class ProxmoxService {
   }
 
   async restartVm(node: string, vmid: number) {
-    await this.client.post(`/nodes/${node}/qemu/${vmid}/status/restart`, '', {
+    await this.client.post(`/nodes/${node}/qemu/${vmid}/status/reboot`, '', {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     });
   }
@@ -238,5 +240,269 @@ export class ProxmoxService {
     if (config.diskSize) {
       await this.resizeDisk(node, vmid, diskKey, config.diskSize);
     }
+  }
+
+  // ============ ИСПРАВЛЕННЫЕ МЕТОДЫ ДЛЯ КОНСОЛИ ============
+
+  async getVmTermTicket(
+    node: string,
+    vmid: number,
+  ): Promise<{ ticket: string; port: number; user: string }> {
+    try {
+      // Исправлено: убран firstValueFrom, используем this.client напрямую
+      const response = await this.client.post(
+        `/nodes/${node}/qemu/${vmid}/vncproxy`,
+        new URLSearchParams({ websocket: '1' }).toString(), // Исправлено: строка '1'
+        {
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        },
+      );
+
+      const data = response.data.data;
+
+      return {
+        ticket: data.ticket,
+        port: data.port,
+        user: data.user,
+      };
+    } catch (error: any) {
+      this.logger.error(`Failed to get VM ticket: ${error.message}`);
+      throw new Error(`PROXMOX_VM_TICKET_ERROR: ${error.message}`);
+    }
+  }
+
+  /**
+   * Получить терминал ticket для LXC контейнера
+   */
+  async getLxcTermTicket(
+    node: string,
+    vmid: number,
+  ): Promise<{ ticket: string; port: number; user: string }> {
+    try {
+      // Исправлено: убран this.api, используем this.client
+      const response = await this.client.post(
+        `/nodes/${node}/lxc/${vmid}/vncproxy`,
+        new URLSearchParams({ websocket: '1' }).toString(), // Исправлено: строка '1'
+        {
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        },
+      );
+
+      const data = response.data.data;
+
+      return {
+        ticket: data.ticket,
+        port: data.port,
+        user: data.user,
+      };
+    } catch (error: any) {
+      this.logger.error(`Failed to get LXC ticket: ${error.message}`);
+      throw new Error(`PROXMOX_LXC_TICKET_ERROR: ${error.message}`);
+    }
+  }
+
+  /**
+   * Построить URL для WebSocket подключения к Proxmox
+   */
+  buildVncWebSocketUrl(
+    node: string,
+    vmid: number,
+    port: number,
+    ticket: string,
+    type: 'qemu' | 'lxc' = 'qemu',
+  ): string {
+    const host = process.env.PROXMOX_HOST!;
+    const portPve = process.env.PROXMOX_PORT!;
+
+    // Заменяем https:// на wss://
+    const protocol = 'wss';
+
+    // Формат URL для Proxmox WebSocket VNC
+    const endpoint = type === 'lxc' ? `lxc/${vmid}` : `qemu/${vmid}`;
+
+    return `${protocol}://${host}:${portPve}/nodes/${node}/${endpoint}/vncwebsocket?port=${port}&vncticket=${encodeURIComponent(ticket)}`;
+  }
+
+  // ─── RBAC: Roles ───────────────────────────────────────────
+
+  /**
+   * Получить список всех ролей Proxmox.
+   */
+  async getRoles(): Promise<any[]> {
+    const { data } = await this.client.get('/access/roles');
+    return data.data;
+  }
+
+  /**
+   * Получить конкретную роль по ID.
+   */
+  async getRole(roleid: string): Promise<any> {
+    const { data } = await this.client.get(
+      `/access/roles/${encodeURIComponent(roleid)}`,
+    );
+    return data.data;
+  }
+
+  /**
+   * Создать новую роль в Proxmox.
+   * @param roleid  — уникальное имя роли
+   * @param privs   — строка привилегий через запятую, напр. "VM.Audit,VM.Console"
+   */
+  async createRole(roleid: string, privs: string): Promise<void> {
+    await this.client.post(
+      '/access/roles',
+      new URLSearchParams({ roleid, privs }).toString(),
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
+    );
+  }
+
+  /**
+   * Обновить привилегии существующей роли.
+   * @param append — если true, привилегии добавляются к существующим
+   */
+  async updateRole(
+    roleid: string,
+    privs: string,
+    append = false,
+  ): Promise<void> {
+    const params: Record<string, string> = { privs };
+    if (append) params.append = '1';
+    await this.client.put(
+      `/access/roles/${encodeURIComponent(roleid)}`,
+      new URLSearchParams(params).toString(),
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
+    );
+  }
+
+  /**
+   * Удалить роль из Proxmox.
+   */
+  async deleteRole(roleid: string): Promise<void> {
+    await this.client.delete(`/access/roles/${encodeURIComponent(roleid)}`);
+  }
+
+  // ─── RBAC: Users ───────────────────────────────────────────
+
+  /**
+   * Получить список всех пользователей Proxmox.
+   */
+  async getPveUsers(enabled?: boolean): Promise<any[]> {
+    const params: Record<string, string> = {};
+    if (enabled !== undefined) params.enabled = enabled ? '1' : '0';
+    const { data } = await this.client.get('/access/users', { params });
+    return data.data;
+  }
+
+  /**
+   * Получить конкретного пользователя Proxmox.
+   * @param userid — формат "user@realm", напр. "admin@pve"
+   */
+  async getPveUser(userid: string): Promise<any> {
+    const { data } = await this.client.get(
+      `/access/users/${encodeURIComponent(userid)}`,
+    );
+    return data.data;
+  }
+
+  /**
+   * Создать пользователя в Proxmox.
+   */
+  async createPveUser(params: {
+    userid: string;
+    password?: string;
+    email?: string;
+    firstname?: string;
+    lastname?: string;
+    groups?: string;
+    comment?: string;
+    enable?: boolean;
+  }): Promise<void> {
+    const body: Record<string, string> = { userid: params.userid };
+    if (params.password) body.password = params.password;
+    if (params.email) body.email = params.email;
+    if (params.firstname) body.firstname = params.firstname;
+    if (params.lastname) body.lastname = params.lastname;
+    if (params.groups) body.groups = params.groups;
+    if (params.comment) body.comment = params.comment;
+    if (params.enable !== undefined) body.enable = params.enable ? '1' : '0';
+    await this.client.post(
+      '/access/users',
+      new URLSearchParams(body).toString(),
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
+    );
+  }
+
+  /**
+   * Обновить пользователя в Proxmox.
+   */
+  async updatePveUser(
+    userid: string,
+    params: {
+      email?: string;
+      firstname?: string;
+      lastname?: string;
+      groups?: string;
+      comment?: string;
+      enable?: boolean;
+    },
+  ): Promise<void> {
+    const body: Record<string, string> = {};
+    if (params.email) body.email = params.email;
+    if (params.firstname) body.firstname = params.firstname;
+    if (params.lastname) body.lastname = params.lastname;
+    if (params.groups) body.groups = params.groups;
+    if (params.comment) body.comment = params.comment;
+    if (params.enable !== undefined) body.enable = params.enable ? '1' : '0';
+    await this.client.put(
+      `/access/users/${encodeURIComponent(userid)}`,
+      new URLSearchParams(body).toString(),
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
+    );
+  }
+
+  /**
+   * Удалить пользователя из Proxmox.
+   */
+  async deletePveUser(userid: string): Promise<void> {
+    await this.client.delete(`/access/users/${encodeURIComponent(userid)}`);
+  }
+
+  // ─── RBAC: ACL ─────────────────────────────────────────────
+
+  /**
+   * Получить текущие ACL-записи Proxmox.
+   */
+  async getAcl(): Promise<any[]> {
+    const { data } = await this.client.get('/access/acl');
+    return data.data;
+  }
+
+  /**
+   * Назначить ACL — привязать роль к пользователю/группе на указанном пути.
+   * @param path   — путь ресурса, напр. "/vms/100", "/storage/local"
+   * @param roles  — роль(и) через запятую
+   * @param users  — пользователь(и) "user@realm" через запятую (или groups)
+   * @param propagate — распространять ли вниз по дереву (по умолчанию true)
+   */
+  async updateAcl(params: {
+    path: string;
+    roles: string;
+    users?: string;
+    groups?: string;
+    propagate?: boolean;
+    delete?: boolean;
+  }): Promise<void> {
+    const body: Record<string, string> = {
+      path: params.path,
+      roles: params.roles,
+    };
+    if (params.users) body.users = params.users;
+    if (params.groups) body.groups = params.groups;
+    if (params.propagate !== undefined)
+      body.propagate = params.propagate ? '1' : '0';
+    if (params.delete) body.delete = '1';
+    await this.client.put('/access/acl', new URLSearchParams(body).toString(), {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    });
   }
 }

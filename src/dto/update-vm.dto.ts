@@ -1,4 +1,5 @@
-import { IsString, MinLength, Allow, IsNumber } from 'class-validator';
+import { IsNumber, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 import { VmConfiguration } from '../models/vm.configuration';
 
@@ -18,6 +19,7 @@ export class UpdateVmDto {
     example: exampleConf,
     required: true,
   })
-  @Allow() // <-- Добавляем Allow сюда
+  @ValidateNested()
+  @Type(() => VmConfiguration)
   configuration: VmConfiguration;
 }

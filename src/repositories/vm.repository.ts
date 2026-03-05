@@ -2,7 +2,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DeleteResult, Repository } from 'typeorm';
-import { VirtualMachine, VmStatus } from '../models/vm.entity';
+import { VirtualMachine } from '../models/vm.entity';
 import { CreateVmDto } from '../dto/create-vm.dto';
 import { User } from '../models/user.entity';
 import { CreateUserDto } from '../dto/create-user.dto';
