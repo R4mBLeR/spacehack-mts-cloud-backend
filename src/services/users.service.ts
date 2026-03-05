@@ -11,8 +11,9 @@ import { UserRepository } from '../repositories/user.repository';
 import { UpdateUserDto } from '../dto/update-user.dto';
 import { AuthUtils } from '../utils/auth.utils';
 import { Role } from '../models/role.entity';
+import { Session } from '../models/session.entity';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
+import { DataSource, In } from 'typeorm';
 
 @Injectable()
 export class UsersService {
@@ -127,5 +128,33 @@ export class UsersService {
     });
 
     return this.userRepository.save(existingUser);
+  }
+
+  async assignRoles(userId: number, roleNames: string[]): Promise<User> {
+    const user = await this.userRepository.findUserById(userId);
+    if (!user) {
+      throw new NotFoundException('USER_NOT_FOUND');
+    }
+
+    const roles = await this.dataSource
+      .getRepository(Role)
+      .findBy({ role: In(roleNames) });
+
+    const foundNames = roles.map((r) => r.role);
+    const missing = roleNames.filter((n) => !foundNames.includes(n));
+    if (missing.length > 0) {
+      throw new NotFoundException(`Roles not found: ${missing.join(', ')}`);
+    }
+
+    user.roles = roles;
+    const updatedUser = await this.userRepository.save(user);
+
+    // Инвалидируем все сессии пользователя —
+    // при следующем refresh он получит новый токен с актуальными ролями
+    await this.dataSource
+      .getRepository(Session)
+      .delete({ user_id: userId });
+
+    return updatedUser;
   }
 }

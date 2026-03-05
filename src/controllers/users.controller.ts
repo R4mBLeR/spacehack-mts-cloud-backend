@@ -22,6 +22,7 @@ import { Roles } from '../auth/roles';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { JwtGuard } from '../auth/guards/jwt.guard';
 import { UpdateUserDto } from '../dto/update-user.dto';
+import { AssignRolesDto } from '../dto/assign-roles.dto';
 import { CurrentUserId } from '../auth/decorators/current.user.decorator.dto';
 import { AuthUtils } from '../utils/auth.utils';
 
@@ -74,5 +75,26 @@ export class UsersController {
     @Body() updateUserDto: UpdateUserDto,
   ): Promise<User> {
     return this.usersService.update(userId, updateUserDto);
+  }
+
+  @Patch(':id/roles')
+  @ApiBearerAuth('access-token')
+  @UseGuards(RolesGuard)
+  @HasRoles(Roles.ADMIN)
+  @ApiOperation({
+    summary: 'Назначить роли пользователю (admin)',
+    description:
+      'Заменяет роли пользователя и инвалидирует все его сессии. ' +
+      'Пользователю потребуется повторно войти — при следующем login/refresh ' +
+      'он получит access_token с актуальными ролями.',
+  })
+  @ApiParam({ name: 'id', type: Number, description: 'ID пользователя', example: 1 })
+  @ApiResponse({ status: 200, description: 'Роли обновлены, сессии инвалидированы' })
+  @ApiResponse({ status: 404, description: 'Пользователь или роль не найдены' })
+  async assignRoles(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: AssignRolesDto,
+  ): Promise<User> {
+    return this.usersService.assignRoles(id, dto.roles);
   }
 }

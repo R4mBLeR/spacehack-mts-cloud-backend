@@ -24,7 +24,7 @@ interface CreateVmConfig {
   cipassword?: string;
   sshkeys?: string;
   ipconfig0?: string;
-  /** Bridge / VNet для net0, напр. 'vnet10'. По умолчанию из env PROXMOX_DEFAULT_BRIDGE */
+  /** Bridge / VNet для net0, напр. 'vmbr0'. По умолчанию из env PROXMOX_DEFAULT_BRIDGE */
   bridge?: string;
 }
 
@@ -63,7 +63,7 @@ export class ProxmoxService {
       throw new Error('Cloned VM has no disk');
     }
 
-    const bridge = config.bridge || process.env.PROXMOX_DEFAULT_BRIDGE || 'vnet10';
+    const bridge = config.bridge || process.env.PROXMOX_DEFAULT_BRIDGE || 'vmbr0';
 
     const updates: any = {
       boot: `order=${diskKey}`,
@@ -101,7 +101,7 @@ export class ProxmoxService {
     };
 
     const res = await this.client.post(
-      `/nodes/${config.node || 'pve'}/qemu/${SystemTemplates.ALPINE}/clone`,
+      `/nodes/${config.node || 'pve'}/qemu/${SystemTemplates.ARCH}/clone`,
       new URLSearchParams(params).toString(),
       {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },

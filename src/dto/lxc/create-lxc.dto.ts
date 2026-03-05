@@ -45,9 +45,16 @@ export class CreateLxcDto {
   @IsString()
   password?: string;
 
-  @ApiPropertyOptional({ description: 'SSH public key' })
+  @ApiPropertyOptional({
+    description: 'SSH public key (формат: ssh-rsa/ssh-ed25519/ecdsa-sha2-nistp256 ...)',
+    example: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... user@host',
+  })
   @IsOptional()
   @IsString()
+  @Matches(
+    /^(ssh-rsa|ssh-ed25519|ecdsa-sha2-nistp256|ecdsa-sha2-nistp384|ecdsa-sha2-nistp521|sk-ssh-ed25519@openssh\.com|sk-ecdsa-sha2-nistp256@openssh\.com)\s+[A-Za-z0-9+/]+={0,2}(\s+.*)?$/,
+    { message: 'sshPublicKeys: invalid SSH public key format' },
+  )
   sshPublicKeys?: string;
 
   /**

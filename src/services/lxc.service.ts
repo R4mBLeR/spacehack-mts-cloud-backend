@@ -6,8 +6,9 @@ import { UpdateLxcDto } from '../dto/lxc/update-lxc.dto';
 
 const NODE = 'pve';
 // Шаблон LXC по умолчанию (debian 12 в local:vztmpl)
-const DEFAULT_TEMPLATE = 'local:vztmpl/debian-12-standard_12.2-1_amd64.tar.zst';
-const DEFAULT_BRIDGE = process.env.PROXMOX_DEFAULT_BRIDGE || 'vnet10';
+const DEFAULT_TEMPLATE = 'local:vztmpl/alpine-3.22-default_20250617_amd64.tar.xz';
+const DEFAULT_BRIDGE = process.env.PROXMOX_DEFAULT_BRIDGE || 'vmbr0';
+const DEFAULT_PASSWORD = process.env.PROXMOX_LXC_DEFAULT_PASSWORD || 'admin';
 
 @Injectable()
 export class LxcService {
@@ -50,7 +51,7 @@ export class LxcService {
       memory: dto.memory,
       cores: dto.cores,
       rootfs: dto.rootfs ?? 'local-lvm:8',
-      password: dto.password,
+      password: dto.password ?? DEFAULT_PASSWORD,
       sshPublicKeys: dto.sshPublicKeys,
       net0: dto.net0 ?? `name=eth0,bridge=${DEFAULT_BRIDGE},ip=dhcp`,
       unprivileged: dto.unprivileged ?? true,
