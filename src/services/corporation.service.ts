@@ -8,10 +8,14 @@ import { CorporationRepository } from '../repositories/corporation.repository';
 import { Corporation } from '../models/corporation.entity';
 import { CreateCorporationDto } from '../dto/create.corporation.dto';
 import { CorporationResponseDto } from '../models/corporation.response.dto';
+import { UserRepository } from '../repositories/user.repository';
 
 @Injectable()
 export class CorporationService {
-  constructor(private readonly corporationRepository: CorporationRepository) {}
+  constructor(
+    private readonly corporationRepository: CorporationRepository,
+    private readonly userRepository: UserRepository,
+  ) {}
 
   async create(
     userId: number,
@@ -23,7 +27,7 @@ export class CorporationService {
     });
 
     const saved = await this.corporationRepository.save(corporation);
-    await this.addMember(saved.id, userId);
+    await this.addMember(saved.id, userId, userId);
 
     return this.findOne(saved.id);
   }
@@ -43,7 +47,7 @@ export class CorporationService {
     });
 
     if (!corporation) {
-      throw new NotFoundException('Corporation not found');
+      throw new NotFoundException('CORPORATION_NOT_FOUND');
     }
 
     return new CorporationResponseDto(corporation);
@@ -52,14 +56,19 @@ export class CorporationService {
   async remove(id: number, userId: number): Promise<void> {
     const corporation = await this.corporationRepository.findOne({
       where: { id },
+      relations: ['members'],
     });
 
     if (!corporation) {
-      throw new NotFoundException('Corporation not found');
+      throw new NotFoundException('CORPORATION_NOT_FOUND');
+    }
+
+    if (corporation.members.some((m) => m.id === userId)) { 
+      throw new ForbiddenException('USER_ALREADY_MEMBER');
     }
 
     if (corporation.adminId !== userId) {
-      throw new ForbiddenException('Only admin can delete corporation');
+      throw new ForbiddenException('NO_ACCESS_TO_DELETE_CORPORATION');
     }
 
     await this.corporationRepository.delete(id);
@@ -68,21 +77,31 @@ export class CorporationService {
   async addMember(
     corporationId: number,
     userId: number,
+    adminId: number,
   ): Promise<CorporationResponseDto> {
-    const corporation = await this.corporationRepository.findOne({
-      where: { id: corporationId },
-      relations: ['members'],
-    });
+    // Проверяем существование корпорации
+    const corporation = await this.corporationRepository.findById(corporationId);
 
     if (!corporation) {
-      throw new NotFoundException('Corporation not found');
+      throw new NotFoundException('CORPORATION_NOT_FOUND');
     }
 
-    const isMember = corporation.members.some((m: any) => m.id === userId);
-    if (isMember) {
-      throw new ForbiddenException('User already member');
+    // Проверяем права администратора
+    if (corporation.adminId !== adminId) {
+      throw new ForbiddenException('ONLY_ADMINS_CAN_ADD_MEMBERS');
     }
 
+    // Проверяем существование пользователя
+    const user = await this.userRepository.findUserById(userId);
+
+    if (!user) {
+      throw new NotFoundException('USER_NOT_FOUND');
+    }
+    if (corporation.members.some((m) => m.id === userId)) { 
+      throw new ForbiddenException('USER_ALREADY_MEMBER');
+    }
+
+    // Добавляем пользователя через relation builder
     await this.corporationRepository
       .createQueryBuilder()
       .relation(Corporation, 'members')
@@ -97,20 +116,19 @@ export class CorporationService {
     adminId: number,
     userId: number,
   ): Promise<CorporationResponseDto> {
-    const corporation = await this.corporationRepository.findOne({
-      where: { id: corporationId },
-    });
+    // Проверяем существование корпорации
+    const corporation = await this.corporationRepository.findById(corporationId);
 
     if (!corporation) {
-      throw new NotFoundException('Corporation not found');
+      throw new NotFoundException('CORPORATION_NOT_FOUND');
     }
 
     if (corporation.adminId !== adminId) {
-      throw new ForbiddenException('Only admin can remove members');
+      throw new ForbiddenException('ONLY_ADMINS_CAN_REMOVE_MEMBERS');
     }
 
     if (userId === adminId) {
-      throw new ForbiddenException('Cannot remove admin');
+      throw new ForbiddenException('CANNOT_REMOVE_ADMIN');
     }
 
     await this.corporationRepository

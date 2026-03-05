@@ -196,6 +196,17 @@ export class VpsController {
 
   // ─── Parametric :id routes (LAST) ────────────────────
 
+  @Get('my')
+  @ApiBearerAuth('access-token')
+  @UseGuards(RolesGuard)
+  @HasRoles(Roles.USER)
+  @ApiOperation({ summary: 'Получить VM текущего пользователя' })
+  async findByUserId(
+    @CurrentUserId() userId: number,
+  ): Promise<VirtualMachine[]> {
+    return this.vpsService.findByUserId(userId);
+  }
+
   @Get(':id')
   @ApiBearerAuth('access-token')
   @UseGuards(RolesGuard)
@@ -207,17 +218,6 @@ export class VpsController {
     @Param('id') id: number,
   ): Promise<VirtualMachine> {
     return this.vpsService.findOne(+id, userId);
-  }
-
-  @Get('')
-  @ApiBearerAuth('access-token')
-  @UseGuards(RolesGuard)
-  @HasRoles(Roles.USER)
-  @ApiOperation({ summary: 'Получить VM по User ID' })
-  async findByUserId(
-    @CurrentUserId() userId: number,
-  ): Promise<VirtualMachine[]> {
-    return this.vpsService.findByUserId(userId);
   }
 
   @Get(':id/monitoring')
