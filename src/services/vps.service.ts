@@ -51,7 +51,7 @@ export class VpsService {
       throw new BadRequestException('INCORRECT_VIRTUAL_MACHINE_NAME');
     }
 
-    const vmid = await this.vmRepository.getNextVmid();
+    const vmid = await this.proxmox.getNextVmid();
     console.log('New VMID:', vmid);
 
     const node = 'pve';

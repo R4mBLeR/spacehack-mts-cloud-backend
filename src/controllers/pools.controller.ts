@@ -3,7 +3,7 @@ import {
   Param, Body,
   UseGuards, UseInterceptors, ClassSerializerInterceptor,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { HasRoles } from '../auth/decorators/role.decorator';
 import { Roles } from '../auth/roles';
@@ -27,6 +27,7 @@ export class PoolsController {
 
   @Get(':poolid')
   @ApiOperation({ summary: 'Детали пула (список VM и storage)' })
+  @ApiParam({ name: 'poolid', type: String, description: 'Идентификатор пула', example: 'my-pool' })
   getPool(@Param('poolid') poolid: string) {
     return this.poolsService.getPool(poolid);
   }
@@ -39,6 +40,7 @@ export class PoolsController {
 
   @Put(':poolid')
   @ApiOperation({ summary: 'Обновить пул (добавить/убрать VM или Storage)' })
+  @ApiParam({ name: 'poolid', type: String, description: 'Идентификатор пула', example: 'my-pool' })
   updatePool(
     @Param('poolid') poolid: string,
     @Body() dto: UpdatePoolDto,
@@ -48,6 +50,7 @@ export class PoolsController {
 
   @Delete(':poolid')
   @ApiOperation({ summary: 'Удалить пул' })
+  @ApiParam({ name: 'poolid', type: String, description: 'Идентификатор пула', example: 'my-pool' })
   deletePool(@Param('poolid') poolid: string) {
     return this.poolsService.deletePool(poolid);
   }

@@ -276,6 +276,14 @@ export class ProxmoxService {
     return data.data;
   }
 
+  /**
+   * Получить следующий свободный VMID (Proxmox cluster/nextid).
+   */
+  async getNextVmid(): Promise<number> {
+    const { data } = await this.client.get('/cluster/nextid');
+    return parseInt(data.data, 10);
+  }
+
   // ── Snapshots ───────────────────────────────────────────
 
   /**

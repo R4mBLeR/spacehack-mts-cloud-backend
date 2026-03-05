@@ -1,24 +1,24 @@
-FROM node:25 AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-COPY package*.json ./
+COPY package*.json yarn.lock* ./
 COPY tsconfig*.json ./
 COPY nest-cli.json ./
 
-RUN npm ci
+RUN yarn install --frozen-lockfile
 
 COPY src/ ./src/
 
-RUN npm run build
+RUN yarn build
 
-FROM node:25-slim
+FROM node:22-alpine
 
 WORKDIR /app
 
-COPY package*.json ./
+COPY package*.json yarn.lock* ./
 
-RUN npm ci --only=production && npm cache clean --force
+RUN yarn install --production --frozen-lockfile
 
 COPY --from=builder /app/dist ./dist
 

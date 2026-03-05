@@ -2,7 +2,7 @@ import {
   Controller, Get, Param, Query,
   UseGuards, UseInterceptors, ClassSerializerInterceptor,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { HasRoles } from '../auth/decorators/role.decorator';
 import { Roles } from '../auth/roles';
@@ -31,6 +31,7 @@ export class StorageController {
 
   @Get(':storage/content')
   @ApiOperation({ summary: 'Содержимое хранилища (ISO, шаблоны, бэкапы)' })
+  @ApiParam({ name: 'storage', type: String, description: 'Идентификатор хранилища', example: 'local' })
   @ApiQuery({
     name: 'type',
     required: false,

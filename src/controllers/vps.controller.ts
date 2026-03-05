@@ -14,7 +14,7 @@ import {
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { HasRoles } from '../auth/decorators/role.decorator';
 import { Roles } from '../auth/roles';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentUserId } from '../auth/decorators/current.user.decorator.dto';
 import { VpsService } from '../services/vps.service';
 import { CreateVmDto } from '../dto/create-vm.dto';
@@ -58,6 +58,9 @@ export class VpsController {
   @UseGuards(RolesGuard)
   @HasRoles(Roles.USER)
   @ApiOperation({ summary: 'Создать VM (клон шаблона + cloud-init)' })
+  @ApiResponse({ status: 201, description: 'VM создана и записана в БД' })
+  @ApiResponse({ status: 400, description: 'Валидация не пройдена' })
+  @ApiResponse({ status: 401, description: 'Не авторизован' })
   async create(
     @CurrentUserId() userId: number,
     @Body() createVmDto: CreateVmDto,
@@ -79,6 +82,8 @@ export class VpsController {
   @UseGuards(RolesGuard)
   @HasRoles(Roles.USER)
   @ApiOperation({ summary: 'Обновить конфигурацию VM (CPU, RAM, Disk)' })
+  @ApiResponse({ status: 200, description: 'Конфигурация обновлена' })
+  @ApiResponse({ status: 401, description: 'Не авторизован' })
   async updateVm(
     @CurrentUserId() userId: number,
     @Body() dto: UpdateVmDto,
@@ -91,6 +96,9 @@ export class VpsController {
   @UseGuards(RolesGuard)
   @HasRoles(Roles.USER)
   @ApiOperation({ summary: 'Удалить VM' })
+  @ApiResponse({ status: 200, description: 'VM удалена из Proxmox и БД' })
+  @ApiResponse({ status: 401, description: 'Не авторизован' })
+  @ApiResponse({ status: 404, description: 'VM не найдена или не принадлежит пользователю' })
   async deleteVm(
     @CurrentUserId() userId: number,
     @Body() deleteVmDto: ChangeVmStatusDto,
@@ -193,6 +201,7 @@ export class VpsController {
   @UseGuards(RolesGuard)
   @HasRoles(Roles.USER)
   @ApiOperation({ summary: 'Получить VM по ID' })
+  @ApiParam({ name: 'id', type: Number, description: 'Внутренний ID в БД', example: 1 })
   async findOne(
     @CurrentUserId() userId: number,
     @Param('id') id: number,
@@ -200,11 +209,23 @@ export class VpsController {
     return this.vpsService.findOne(+id, userId);
   }
 
+  @Get('')
+  @ApiBearerAuth('access-token')
+  @UseGuards(RolesGuard)
+  @HasRoles(Roles.USER)
+  @ApiOperation({ summary: 'Получить VM по User ID' })
+  async findByUserId(
+    @CurrentUserId() userId: number,
+  ): Promise<VirtualMachine[]> {
+    return this.vpsService.findByUserId(userId);
+  }
+
   @Get(':id/monitoring')
   @ApiBearerAuth('access-token')
   @UseGuards(RolesGuard)
   @HasRoles(Roles.USER)
   @ApiOperation({ summary: 'RRD-данные VM (CPU, RAM, NET, Disk)' })
+  @ApiParam({ name: 'id', type: Number, description: 'Внутренний ID в БД', example: 1 })
   @ApiQuery({ name: 'timeframe', required: false, enum: ['hour', 'day', 'week', 'month', 'year'] })
   @ApiQuery({ name: 'cf', required: false, enum: ['AVERAGE', 'MAX'] })
   async getVmMonitoring(
@@ -221,6 +242,7 @@ export class VpsController {
   @UseGuards(RolesGuard)
   @HasRoles(Roles.USER)
   @ApiOperation({ summary: 'Список снапшотов VM' })
+  @ApiParam({ name: 'id', type: Number, description: 'Внутренний ID в БД', example: 1 })
   async listSnapshots(
     @CurrentUserId() userId: number,
     @Param('id') id: number,

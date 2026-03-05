@@ -11,7 +11,7 @@ import {
   ClassSerializerInterceptor,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags, ApiOperation, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { HasRoles } from '../auth/decorators/role.decorator';
 import { Roles } from '../auth/roles';
@@ -43,6 +43,7 @@ export class RbacController {
 
   @Get('roles/:roleid')
   @ApiOperation({ summary: 'Получить роль по ID' })
+  @ApiParam({ name: 'roleid', type: String, description: 'Идентификатор роли Proxmox', example: 'PVEVMAdmin' })
   getRole(@Param('roleid') roleid: string) {
     return this.rbacService.getRole(roleid);
   }
@@ -55,12 +56,14 @@ export class RbacController {
 
   @Put('roles/:roleid')
   @ApiOperation({ summary: 'Обновить привилегии роли' })
+  @ApiParam({ name: 'roleid', type: String, description: 'Идентификатор роли Proxmox', example: 'PVEVMAdmin' })
   updateRole(@Param('roleid') roleid: string, @Body() dto: UpdateRoleDto) {
     return this.rbacService.updateRole(roleid, dto.privs, dto.append);
   }
 
   @Delete('roles/:roleid')
   @ApiOperation({ summary: 'Удалить роль' })
+  @ApiParam({ name: 'roleid', type: String, description: 'Идентификатор роли Proxmox', example: 'PVEVMAdmin' })
   deleteRole(@Param('roleid') roleid: string) {
     return this.rbacService.deleteRole(roleid);
   }
@@ -77,6 +80,7 @@ export class RbacController {
 
   @Get('users/:userid')
   @ApiOperation({ summary: 'Получить PVE-пользователя по userid' })
+  @ApiParam({ name: 'userid', type: String, description: 'Идентификатор PVE-пользователя', example: 'admin@pve' })
   getPveUser(@Param('userid') userid: string) {
     return this.rbacService.getPveUser(userid);
   }
@@ -89,12 +93,14 @@ export class RbacController {
 
   @Put('users/:userid')
   @ApiOperation({ summary: 'Обновить PVE-пользователя' })
+  @ApiParam({ name: 'userid', type: String, description: 'Идентификатор PVE-пользователя', example: 'admin@pve' })
   updatePveUser(@Param('userid') userid: string, @Body() dto: UpdatePveUserDto) {
     return this.rbacService.updatePveUser(userid, dto);
   }
 
   @Delete('users/:userid')
   @ApiOperation({ summary: 'Удалить PVE-пользователя' })
+  @ApiParam({ name: 'userid', type: String, description: 'Идентификатор PVE-пользователя', example: 'admin@pve' })
   deletePveUser(@Param('userid') userid: string) {
     return this.rbacService.deletePveUser(userid);
   }

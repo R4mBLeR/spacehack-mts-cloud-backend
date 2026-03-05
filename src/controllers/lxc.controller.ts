@@ -3,7 +3,7 @@ import {
   Param, Body, Query,
   UseGuards, UseInterceptors, ClassSerializerInterceptor,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { HasRoles } from '../auth/decorators/role.decorator';
 import { Roles } from '../auth/roles';
@@ -38,18 +38,21 @@ export class LxcController {
 
   @Get(':proxmoxId')
   @ApiOperation({ summary: 'Статус LXC по proxmox_id' })
+  @ApiParam({ name: 'proxmoxId', type: Number, description: 'Proxmox VMID контейнера', example: 101 })
   getStatus(@Param('proxmoxId') proxmoxId: number) {
     return this.lxcService.getStatus(+proxmoxId);
   }
 
   @Get(':proxmoxId/config')
   @ApiOperation({ summary: 'Конфигурация LXC' })
+  @ApiParam({ name: 'proxmoxId', type: Number, description: 'Proxmox VMID контейнера', example: 101 })
   getConfig(@Param('proxmoxId') proxmoxId: number) {
     return this.lxcService.getConfig(+proxmoxId);
   }
 
   @Get(':proxmoxId/monitoring')
   @ApiOperation({ summary: 'RRD-метрики LXC' })
+  @ApiParam({ name: 'proxmoxId', type: Number, description: 'Proxmox VMID контейнера', example: 101 })
   @ApiQuery({ name: 'timeframe', required: false, enum: ['hour', 'day', 'week', 'month', 'year'] })
   @ApiQuery({ name: 'cf', required: false, enum: ['AVERAGE', 'MAX'] })
   getMonitoring(
@@ -62,6 +65,7 @@ export class LxcController {
 
   @Patch(':proxmoxId/config')
   @ApiOperation({ summary: 'Обновить конфигурацию LXC' })
+  @ApiParam({ name: 'proxmoxId', type: Number, description: 'Proxmox VMID контейнера', example: 101 })
   updateConfig(
     @Param('proxmoxId') proxmoxId: number,
     @Body() dto: UpdateLxcDto,
@@ -71,30 +75,35 @@ export class LxcController {
 
   @Post(':proxmoxId/start')
   @ApiOperation({ summary: 'Запустить LXC' })
+  @ApiParam({ name: 'proxmoxId', type: Number, description: 'Proxmox VMID контейнера', example: 101 })
   start(@Param('proxmoxId') proxmoxId: number) {
     return this.lxcService.start(+proxmoxId);
   }
 
   @Post(':proxmoxId/stop')
   @ApiOperation({ summary: 'Остановить LXC (hard stop)' })
+  @ApiParam({ name: 'proxmoxId', type: Number, description: 'Proxmox VMID контейнера', example: 101 })
   stop(@Param('proxmoxId') proxmoxId: number) {
     return this.lxcService.stop(+proxmoxId);
   }
 
   @Post(':proxmoxId/shutdown')
   @ApiOperation({ summary: 'Выключить LXC (graceful)' })
+  @ApiParam({ name: 'proxmoxId', type: Number, description: 'Proxmox VMID контейнера', example: 101 })
   shutdown(@Param('proxmoxId') proxmoxId: number) {
     return this.lxcService.shutdown(+proxmoxId);
   }
 
   @Post(':proxmoxId/reboot')
   @ApiOperation({ summary: 'Перезагрузить LXC' })
+  @ApiParam({ name: 'proxmoxId', type: Number, description: 'Proxmox VMID контейнера', example: 101 })
   reboot(@Param('proxmoxId') proxmoxId: number) {
     return this.lxcService.reboot(+proxmoxId);
   }
 
   @Delete(':proxmoxId')
   @ApiOperation({ summary: 'Удалить LXC-контейнер' })
+  @ApiParam({ name: 'proxmoxId', type: Number, description: 'Proxmox VMID контейнера', example: 101 })
   delete(@Param('proxmoxId') proxmoxId: number) {
     return this.lxcService.delete(+proxmoxId);
   }

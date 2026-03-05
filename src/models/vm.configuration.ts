@@ -11,14 +11,14 @@ export class VmConfiguration {
 
   @ApiProperty({ description: 'RAM (MB)', example: 8, minimum: 1, maximum: 128 })
   @IsInt()
-  @Min(1)
-  @Max(128)
+  @Min(16)
+  @Max(1100)
   ram: number;
 
   @ApiProperty({ description: 'Диск SSD (MB)', example: 16, minimum: 10, maximum: 1000 })
   @IsInt()
   @Min(10)
-  @Max(1000)
+  @Max(8000)
   ssd: number;
 
   constructor(cpu: number, ram: number, ssd: number) {

@@ -14,15 +14,16 @@ export class UpdateUserDto {
   email?: string;
 
   @ApiProperty({
-    description: 'password',
+    description: 'Новый пароль (если нужна смена)',
     example: '123456789',
     type: String,
     minLength: 8,
-    required: true,
+    required: false,
   })
+  @IsOptional()
   @IsString()
   @MinLength(8)
-  password: string;
+  password?: string;
 
   @ApiProperty({
     description: 'New user first name',

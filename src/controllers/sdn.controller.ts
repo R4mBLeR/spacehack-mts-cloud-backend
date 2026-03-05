@@ -2,7 +2,7 @@ import {
   Controller, Get, Param, Post,
   UseGuards, UseInterceptors, ClassSerializerInterceptor,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { HasRoles } from '../auth/decorators/role.decorator';
 import { Roles } from '../auth/roles';
@@ -25,6 +25,7 @@ export class SdnController {
 
   @Get('zones/:zone')
   @ApiOperation({ summary: 'Детали SDN-зоны' })
+  @ApiParam({ name: 'zone', type: String, description: 'Идентификатор SDN-зоны', example: 'vxlan-zone' })
   getZone(@Param('zone') zone: string) {
     return this.proxmox.getSdnZone(zone);
   }
@@ -37,12 +38,14 @@ export class SdnController {
 
   @Get('vnets/:vnet')
   @ApiOperation({ summary: 'Детали VNet' })
+  @ApiParam({ name: 'vnet', type: String, description: 'Идентификатор VNet', example: 'vnet10' })
   getVnet(@Param('vnet') vnet: string) {
     return this.proxmox.getSdnVnet(vnet);
   }
 
   @Get('vnets/:vnet/subnets')
   @ApiOperation({ summary: 'Подсети VNet' })
+  @ApiParam({ name: 'vnet', type: String, description: 'Идентификатор VNet', example: 'vnet10' })
   getSubnets(@Param('vnet') vnet: string) {
     return this.proxmox.getSdnSubnets(vnet);
   }

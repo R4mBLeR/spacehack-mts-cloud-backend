@@ -8,6 +8,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { AuthUtils } from '../../utils/auth.utils';
+import { Roles } from '../roles';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -18,10 +19,10 @@ export class RolesGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const requiredRoles = this.reflector.get<string[]>(
-      'roles',
+    const requiredRoles = this.reflector.getAllAndOverride<string[]>('roles', [
       context.getHandler(),
-    );
+      context.getClass(),
+    ]);
     const request = context.switchToHttp().getRequest();
 
     if (!request) {
@@ -40,9 +41,23 @@ export class RolesGuard implements CanActivate {
     } catch (e) {
       throw new UnauthorizedException('TOKEN_IS_INVALID');
     }
-    console.log(payload.roles);
 
-    const userRoles = payload.roles || [];
+    request.user = {
+      id: payload.id,
+      username: payload.username,
+    };
+
+    if (!requiredRoles || requiredRoles.length === 0) {
+      return true;
+    }
+
+    const userRoles: string[] = payload.roles || [];
+
+    // admin проходит любую проверку ролей
+    if (userRoles.includes(Roles.ADMIN)) {
+      return true;
+    }
+
     const hasRequiredRole = requiredRoles.some((role) =>
       userRoles.includes(role),
     );
@@ -50,10 +65,6 @@ export class RolesGuard implements CanActivate {
       throw new UnauthorizedException('NO_REQUIRED_ROLE');
     }
 
-    request.user = {
-      id: payload.id,
-      username: payload.username,
-    };
     return true;
   }
 }
